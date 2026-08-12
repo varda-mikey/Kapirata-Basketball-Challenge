@@ -29,6 +29,10 @@ const db =
   );
 
 
+const MEDIA_BRIDGE_URL =
+  "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
+
+
 const $ =
   (id) =>
     document.getElementById(
@@ -36,12 +40,13 @@ const $ =
     );
 
 
-let attempts = [];
+let attempts =
+  [];
 
 
-/* =====================================
-   LOAD DATA
-===================================== */
+/* =============================
+   LOAD FIRESTORE
+============================= */
 
 async function loadAttempts() {
 
@@ -57,14 +62,17 @@ async function loadAttempts() {
 
     const attemptsQuery =
       query(
+
         collection(
           db,
           "attempts"
         ),
+
         orderBy(
           "createdAt",
           "desc"
         )
+
       );
 
 
@@ -76,18 +84,14 @@ async function loadAttempts() {
 
     attempts =
       snapshot.docs.map(
-        (document) => {
+        (item) => ({
 
-          return {
+          id:
+            item.id,
 
-            id:
-              document.id,
+          ...item.data()
 
-            ...document.data()
-
-          };
-
-        }
+        })
       );
 
 
@@ -107,57 +111,47 @@ async function loadAttempts() {
 
 
     /*
-      If orderBy fails because
-      of older documents without
-      createdAt, retry without
-      ordering.
+      Fallback for older records
+      without createdAt.
     */
 
     try {
 
       const fallback =
         await getDocs(
+
           collection(
             db,
             "attempts"
           )
+
         );
 
 
       attempts =
         fallback.docs.map(
-          (document) => {
+          (item) => ({
 
-            return {
+            id:
+              item.id,
 
-              id:
-                document.id,
+            ...item.data()
 
-              ...document.data()
-
-            };
-
-          }
+          })
         );
 
 
       attempts.sort(
-        (
-          a,
-          b
-        ) => {
+        (a, b) =>
 
-          return (
-            getMillis(
-              b.createdAt
-            )
-            -
-            getMillis(
-              a.createdAt
-            )
-          );
+          getMillis(
+            b.createdAt
+          )
+          -
+          getMillis(
+            a.createdAt
+          )
 
-        }
       );
 
 
@@ -170,11 +164,11 @@ async function loadAttempts() {
     }
 
     catch (
-      fallbackError
+      secondError
     ) {
 
       console.error(
-        fallbackError
+        secondError
       );
 
 
@@ -195,9 +189,9 @@ async function loadAttempts() {
 }
 
 
-/* =====================================
+/* =============================
    RENDER
-===================================== */
+============================= */
 
 function render() {
 
@@ -212,8 +206,7 @@ function render() {
 
 
   const filter =
-    $("filter")
-      .value;
+    $("filter").value;
 
 
   const filtered =
@@ -239,14 +232,14 @@ function render() {
             .toLowerCase();
 
 
-        const matchesSearch =
+        const searchOkay =
           !search ||
           haystack.includes(
             search
           );
 
 
-        const matchesFilter =
+        const filterOkay =
           matchFilter(
             attempt,
             filter
@@ -254,8 +247,8 @@ function render() {
 
 
         return (
-          matchesSearch &&
-          matchesFilter
+          searchOkay &&
+          filterOkay
         );
 
       }
@@ -274,9 +267,9 @@ function render() {
 }
 
 
-/* =====================================
-   SUMMARY COUNTS
-===================================== */
+/* =============================
+   STATISTICS
+============================= */
 
 function renderStats() {
 
@@ -287,32 +280,38 @@ function renderStats() {
   $("approvedCount").textContent =
     attempts.filter(
       (attempt) =>
+
         attempt.result ===
         "approved"
+
     ).length;
 
 
   $("availableCount").textContent =
     attempts.filter(
       (attempt) =>
+
         attempt.voucherStatus ===
         "available"
+
     ).length;
 
 
   $("redeemedCount").textContent =
     attempts.filter(
       (attempt) =>
+
         attempt.voucherStatus ===
         "redeemed"
+
     ).length;
 
 }
 
 
-/* =====================================
-   FILTER
-===================================== */
+/* =============================
+   FILTERING
+============================= */
 
 function matchFilter(
   attempt,
@@ -355,9 +354,9 @@ function matchFilter(
 }
 
 
-/* =====================================
+/* =============================
    DESKTOP TABLE
-===================================== */
+============================= */
 
 function renderTable(
   records
@@ -393,99 +392,92 @@ function renderTable(
       (attempt) => {
 
         return `
-          <tr>
+        <tr>
 
-            <td>
+          <td>
 
-              <strong>
-                ${escapeHtml(
-                  attempt.name ||
-                  "—"
-                )}
-              </strong>
-
-              <small>
-                ID:
-                ${escapeHtml(
-                  shortId(
-                    attempt.id
-                  )
-                )}
-              </small>
-
-            </td>
-
-
-            <td>
-
-              <strong>
-                ${escapeHtml(
-                  attempt.receiptNumber ||
-                  "—"
-                )}
-              </strong>
-
-              <small>
-                ${escapeHtml(
-                  attempt.receiptFileName ||
-                  "No receipt filename"
-                )}
-              </small>
-
-            </td>
-
-
-            <td>
-
-              ${resultBadge(
-                attempt.result
+            <strong>
+              ${escapeHtml(
+                attempt.name ||
+                "—"
               )}
+            </strong>
 
-            </td>
-
-
-            <td>
-
-              <strong>
-                ${escapeHtml(
-                  attempt.voucherCode ||
-                  "—"
-                )}
-              </strong>
-
-              ${voucherBadge(
-                attempt.voucherStatus
+            <small>
+              ID:
+              ${escapeHtml(
+                shortId(
+                  attempt.id
+                )
               )}
+            </small>
 
-            </td>
+          </td>
 
 
-            <td>
+          <td>
 
-              ${mediaSummary(
-                attempt
+            <strong>
+              ${escapeHtml(
+                attempt.receiptNumber ||
+                "—"
               )}
+            </strong>
 
-            </td>
+          </td>
 
 
-            <td>
+          <td>
 
-              <strong>
-                ${formatDateTime(
-                  attempt.createdAt
-                )}
-              </strong>
+            ${resultBadge(
+              attempt.result
+            )}
 
-              <small>
-                ${expiryText(
-                  attempt.expiresAt
-                )}
-              </small>
+          </td>
 
-            </td>
 
-          </tr>
+          <td>
+
+            <strong>
+              ${escapeHtml(
+                attempt.voucherCode ||
+                "—"
+              )}
+            </strong>
+
+            ${voucherBadge(
+              attempt.voucherStatus
+            )}
+
+          </td>
+
+
+          <td>
+
+            ${mediaButtons(
+              attempt
+            )}
+
+          </td>
+
+
+          <td>
+
+            <strong>
+              ${formatDateTime(
+                attempt.createdAt
+              )}
+            </strong>
+
+            <small>
+              ${expiryText(
+                attempt.expiresAt
+              )}
+            </small>
+
+          </td>
+
+        </tr>
         `;
 
       }
@@ -494,9 +486,9 @@ function renderTable(
 }
 
 
-/* =====================================
-   MOBILE CARDS
-===================================== */
+/* =============================
+   MOBILE
+============================= */
 
 function renderMobileCards(
   records
@@ -527,104 +519,84 @@ function renderMobileCards(
       (attempt) => {
 
         return `
-          <article class="attempt-card">
+        <article class="attempt-card">
 
-            <div class="card-head">
+          <div class="card-head">
 
-              <div>
+            <div>
 
-                <strong class="student-name">
-                  ${escapeHtml(
-                    attempt.name ||
-                    "—"
-                  )}
-                </strong>
+              <strong class="student-name">
+                ${escapeHtml(
+                  attempt.name ||
+                  "—"
+                )}
+              </strong>
 
-                <small>
-                  Receipt:
-                  ${escapeHtml(
-                    attempt.receiptNumber ||
-                    "—"
-                  )}
-                </small>
+              <small>
+                Receipt:
+                ${escapeHtml(
+                  attempt.receiptNumber ||
+                  "—"
+                )}
+              </small>
 
-              </div>
+            </div>
+
+            ${resultBadge(
+              attempt.result
+            )}
+
+          </div>
 
 
-              ${resultBadge(
-                attempt.result
+          <div class="card-grid">
+
+            <div>
+
+              <span>
+                Voucher
+              </span>
+
+              <strong>
+                ${escapeHtml(
+                  attempt.voucherCode ||
+                  "—"
+                )}
+              </strong>
+
+              ${voucherBadge(
+                attempt.voucherStatus
               )}
 
             </div>
 
 
-            <div class="card-grid">
+            <div>
 
-              <div>
+              <span>
+                Date
+              </span>
 
-                <span>
-                  Voucher
-                </span>
-
-                <strong>
-                  ${escapeHtml(
-                    attempt.voucherCode ||
-                    "—"
-                  )}
-                </strong>
-
-                ${voucherBadge(
-                  attempt.voucherStatus
+              <strong>
+                ${formatDateTime(
+                  attempt.createdAt
                 )}
-
-              </div>
-
-
-              <div>
-
-                <span>
-                  Date
-                </span>
-
-                <strong>
-                  ${formatDateTime(
-                    attempt.createdAt
-                  )}
-                </strong>
-
-              </div>
+              </strong>
 
             </div>
 
-
-            <div class="media-box">
-
-              <strong>
-                Receipt File
-              </strong>
-
-              <small>
-                ${escapeHtml(
-                  attempt.receiptFileName ||
-                  "Not recorded"
-                )}
-              </small>
+          </div>
 
 
-              <strong>
-                Successful Video
-              </strong>
+          <div class="media-box">
 
-              <small>
-                ${escapeHtml(
-                  attempt.successfulVideoFileName ||
-                  "No successful video"
-                )}
-              </small>
+            ${mediaButtons(
+              attempt
+            )}
 
-            </div>
+          </div>
 
-          </article>
+        </article>
         `;
 
       }
@@ -633,71 +605,154 @@ function renderMobileCards(
 }
 
 
-/* =====================================
-   MEDIA
-===================================== */
+/* =============================
+   MEDIA BUTTONS
+============================= */
 
-function mediaSummary(
+function mediaButtons(
   attempt
 ) {
 
-  const receipt =
+  let html =
+    "";
+
+
+  if (
     attempt.receiptFileName
-      ? `
-        <div class="media-item">
-          <span>
-            📷
-          </span>
+  ) {
 
-          <small>
-            ${escapeHtml(
-              attempt.receiptFileName
-            )}
-          </small>
-        </div>
-      `
-      :
-      `
-        <div class="media-item muted">
-          No receipt file
-        </div>
-      `;
+    const receiptUrl =
+      buildMediaUrl(
+
+        "receipt",
+
+        attempt.receiptFileName
+
+      );
 
 
-  const video =
+    html += `
+      <a
+        href="${escapeAttribute(receiptUrl)}"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="
+          display:block;
+          text-align:center;
+          padding:10px;
+          margin:4px 0;
+          border-radius:10px;
+          background:#ffc928;
+          color:#181818;
+          text-decoration:none;
+          font-weight:900;
+        "
+      >
+        📷 VIEW RECEIPT
+      </a>
+    `;
+
+  }
+
+  else {
+
+    html += `
+      <small>
+        No receipt photo
+      </small>
+    `;
+
+  }
+
+
+  if (
     attempt.successfulVideoFileName
-      ? `
-        <div class="media-item">
-          <span>
-            🎥
-          </span>
+  ) {
 
-          <small>
-            ${escapeHtml(
-              attempt.successfulVideoFileName
-            )}
-          </small>
-        </div>
-      `
-      :
-      `
-        <div class="media-item muted">
-          No successful video
-        </div>
-      `;
+    const videoUrl =
+      buildMediaUrl(
 
+        "video",
+
+        attempt
+          .successfulVideoFileName
+
+      );
+
+
+    html += `
+      <a
+        href="${escapeAttribute(videoUrl)}"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="
+          display:block;
+          text-align:center;
+          padding:10px;
+          margin:4px 0;
+          border-radius:10px;
+          background:#181818;
+          color:#ffffff;
+          text-decoration:none;
+          font-weight:900;
+        "
+      >
+        🎥 PLAY VIDEO
+      </a>
+    `;
+
+  }
+
+  else {
+
+    html += `
+      <small
+        style="
+          display:block;
+          margin-top:6px;
+        "
+      >
+        No successful video
+      </small>
+    `;
+
+  }
+
+
+  return html;
+
+}
+
+
+function buildMediaUrl(
+  type,
+  fileName
+) {
 
   return (
-    receipt +
-    video
+
+    MEDIA_BRIDGE_URL +
+
+    "?action=view" +
+
+    "&type=" +
+    encodeURIComponent(
+      type
+    ) +
+
+    "&name=" +
+    encodeURIComponent(
+      fileName
+    )
+
   );
 
 }
 
 
-/* =====================================
+/* =============================
    BADGES
-===================================== */
+============================= */
 
 function resultBadge(
   result
@@ -773,9 +828,9 @@ function voucherBadge(
 }
 
 
-/* =====================================
-   DATE HELPERS
-===================================== */
+/* =============================
+   DATES
+============================= */
 
 function formatDateTime(
   value
@@ -788,9 +843,7 @@ function formatDateTime(
 
 
   if (!date) {
-
     return "—";
-
   }
 
 
@@ -830,9 +883,7 @@ function expiryText(
 
 
   if (!date) {
-
     return "";
-
   }
 
 
@@ -863,9 +914,7 @@ function timestampToDate(
 ) {
 
   if (!value) {
-
     return null;
-
   }
 
 
@@ -923,17 +972,16 @@ function getMillis(
 }
 
 
-/* =====================================
-   OTHER HELPERS
-===================================== */
+/* =============================
+   HELPERS
+============================= */
 
 function shortId(
   value
 ) {
 
   return String(
-    value ||
-    ""
+    value || ""
   ).slice(
     0,
     8
@@ -949,9 +997,7 @@ function escapeHtml(
   return String(
     value ?? ""
   ).replace(
-
     /[&<>"']/g,
-
     (character) => {
 
       const map = {
@@ -979,15 +1025,25 @@ function escapeHtml(
       ];
 
     }
-
   );
 
 }
 
 
-/* =====================================
+function escapeAttribute(
+  value
+) {
+
+  return escapeHtml(
+    value
+  );
+
+}
+
+
+/* =============================
    EVENTS
-===================================== */
+============================= */
 
 $("search").addEventListener(
   "input",
@@ -1007,8 +1063,8 @@ $("refreshBtn").addEventListener(
 );
 
 
-/* =====================================
+/* =============================
    START
-===================================== */
+============================= */
 
 loadAttempts();
