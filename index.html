@@ -1,39 +1,71 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#b5161b" />
-  <title>Kapirata Basketball Challenge</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#b5161b"
+  >
+
+  <title>
+    Kapirata Basketball Challenge
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="styles.css"
+  >
 </head>
+
 
 <body>
 
 <main class="app-shell">
 
-  <!-- HOME -->
-  <section id="screen-home" class="screen active">
+
+  <!-- ==================================================
+       HOME
+  =================================================== -->
+
+  <section
+    id="screen-home"
+    class="screen active"
+  >
 
     <div class="brand-badge">
       🏴‍☠️ PIRATES' CAFETERIA
     </div>
 
+
     <div class="hero-ball">
       🏀
     </div>
 
+
     <h1>
-      KAPIRATA<br>
+      KAPIRATA
+      <br>
       BASKETBALL CHALLENGE
     </h1>
+
 
     <p class="tagline">
       SHOOT MO, DISCOUNT MO!
     </p>
 
+
     <div class="reward-card">
-      <span>WIN</span>
+
+      <span>
+        WIN
+      </span>
 
       <strong>
         ₱10 OFF
@@ -42,7 +74,9 @@
       <small>
         One-time voucher • Valid for 7 days
       </small>
+
     </div>
+
 
     <button
       class="btn btn-primary"
@@ -51,12 +85,14 @@
       🏀 LARO NA BES!
     </button>
 
+
     <button
       class="btn btn-secondary"
       data-next="screen-my-voucher"
     >
       🎟️ MY VOUCHER
     </button>
+
 
     <button
       class="text-btn"
@@ -68,8 +104,15 @@
   </section>
 
 
-  <!-- RULES -->
-  <section id="screen-rules" class="screen">
+
+  <!-- ==================================================
+       RULES
+  =================================================== -->
+
+  <section
+    id="screen-rules"
+    class="screen"
+  >
 
     <button
       class="back"
@@ -78,14 +121,16 @@
       ← Back
     </button>
 
+
     <h2>
-      Mechanics
+      HOW TO PLAY
     </h2>
+
 
     <div class="card rules">
 
       <p>
-        🥤 Buy an eligible bottled or canned drink from the Main Canteen.
+        🥤 Buy an eligible bottled or canned drink.
       </p>
 
       <p>
@@ -97,7 +142,7 @@
       </p>
 
       <p>
-        📸 Upload a clear photo of your receipt.
+        📸 Take a clear photo of your receipt.
       </p>
 
       <p>
@@ -105,14 +150,23 @@
       </p>
 
       <p>
-        ✅ Successful shots must be validated by the cashier.
+        🎥 Your challenge video stays on your phone and is shown directly to the cashier.
       </p>
 
       <p>
-        🎟️ Winning vouchers are valid for 7 days only.
+        🔐 Successful shots must be confirmed by an authorized cashier.
+      </p>
+
+      <p>
+        🎟️ Winning voucher is valid for 7 days and can only be used once.
+      </p>
+
+      <p>
+        📷 Cashier will take one claim evidence photo when the voucher is redeemed.
       </p>
 
     </div>
+
 
     <button
       class="btn btn-primary"
@@ -124,8 +178,15 @@
   </section>
 
 
-  <!-- STUDENT FORM -->
-  <section id="screen-form" class="screen">
+
+  <!-- ==================================================
+       STUDENT DETAILS
+  =================================================== -->
+
+  <section
+    id="screen-form"
+    class="screen"
+  >
 
     <button
       class="back"
@@ -134,47 +195,61 @@
       ← Back
     </button>
 
+
+    <div class="step-label">
+      STEP 1
+    </div>
+
+
     <h2>
-      Ready ka na?
+      READY KA NA?
     </h2>
 
+
     <p class="muted">
-      Name + receipt lang, bes.
+      Name + UTAK receipt muna, bes.
     </p>
 
+
     <label>
+
       Name
 
       <input
         id="playerName"
+        type="text"
         maxlength="60"
-        placeholder="Your name"
         autocomplete="name"
-      />
+        placeholder="Your name"
+      >
 
     </label>
 
 
     <label>
+
       UTAK Receipt Number
 
       <input
         id="receiptNumber"
+        type="text"
         maxlength="40"
+        autocomplete="off"
         placeholder="Receipt number"
-      />
+      >
 
     </label>
+
 
 
     <label class="upload-box">
 
       <span>
-        📷 Receipt Photo
+        📷 TAKE RECEIPT PHOTO
       </span>
 
       <small>
-        Required • receipt number must be readable
+        Make sure the receipt number is readable.
       </small>
 
       <input
@@ -182,16 +257,18 @@
         type="file"
         accept="image/*"
         capture="environment"
-      />
+      >
 
     </label>
+
 
 
     <img
       id="receiptPreview"
       class="preview hidden"
       alt="Receipt preview"
-    />
+    >
+
 
 
     <label class="consent">
@@ -199,20 +276,21 @@
       <input
         id="consent"
         type="checkbox"
-      />
+      >
 
       <span>
-        I agree that my receipt photo and successful challenge video may be stored for promo validation and fraud prevention.
+        I agree that my receipt photo may be stored for promo validation. My challenge video will only be shown locally to the cashier and will not be uploaded.
       </span>
 
     </label>
+
 
 
     <button
       id="continueToCamera"
       class="btn btn-primary"
     >
-      GAME NA BES!
+      NEXT: SHOOT NA! 🏀
     </button>
 
 
@@ -224,7 +302,11 @@
   </section>
 
 
-  <!-- CAMERA -->
+
+  <!-- ==================================================
+       CAMERA / RECORDING
+  =================================================== -->
+
   <section
     id="screen-camera"
     class="screen camera-screen"
@@ -246,6 +328,22 @@
     </div>
 
 
+    <div class="step-label">
+      STEP 2
+    </div>
+
+
+    <h2>
+      TRASHKETBALL TIME! 🏀
+    </h2>
+
+
+    <p class="muted">
+      HD recording • 10 seconds
+    </p>
+
+
+
     <div class="camera-frame">
 
       <video
@@ -254,6 +352,7 @@
         playsinline
         muted
       ></video>
+
 
       <video
         id="playback"
@@ -273,47 +372,71 @@
     </div>
 
 
+
     <div class="camera-actions">
 
       <button
         id="enableCamera"
         class="btn btn-secondary"
       >
-        ALLOW CAMERA
+        📷 ALLOW CAMERA
       </button>
+
 
       <button
         id="startRecording"
         class="btn btn-record hidden"
       >
-        ● START RECORDING
+        ● START 10-SEC RECORDING
       </button>
+
 
       <button
         id="stopRecording"
         class="btn btn-dark hidden"
       >
-        STOP
+        STOP RECORDING
       </button>
 
     </div>
 
+
+    <p class="tiny-note">
+      Video stays on this device only.
+    </p>
+
   </section>
 
 
-  <!-- SELF RESULT -->
+
+  <!-- ==================================================
+       STUDENT RESULT
+  =================================================== -->
+
   <section
     id="screen-result"
     class="screen"
   >
 
+    <div class="hero-ball">
+      👀
+    </div>
+
+
+    <div class="step-label">
+      STEP 3
+    </div>
+
+
     <h2>
-      NASHOOT MO BA, BES? 👀
+      NASHOOT MO BA, BES?
     </h2>
 
+
     <p class="muted">
-      Cashier will review your video.
+      Be honest — cashier will watch the replay.
     </p>
+
 
     <div class="split">
 
@@ -323,6 +446,7 @@
       >
         ✅ OO! NASHOOT KO!
       </button>
+
 
       <button
         id="missedShot"
@@ -336,7 +460,11 @@
   </section>
 
 
-  <!-- MISSED -->
+
+  <!-- ==================================================
+       MISSED
+  =================================================== -->
+
   <section
     id="screen-missed"
     class="screen"
@@ -346,70 +474,96 @@
       😅
     </div>
 
+
     <h2>
-      TRY AGAIN BES!
+      SAYANG BES!
     </h2>
+
 
     <p>
       Masho-shoot mo rin 'yan.
     </p>
 
+
     <p class="muted">
       New eligible receipt = new attempt.
     </p>
+
 
     <button
       id="closeMissed"
       class="btn btn-primary"
     >
-      CLOSE GAME
+      BACK TO HOME
     </button>
 
   </section>
 
 
-  <!-- CASHIER REVIEW -->
+
+  <!-- ==================================================
+       CASHIER VIDEO REVIEW
+  =================================================== -->
+
   <section
     id="screen-cashier"
     class="screen"
   >
 
+    <div class="step-label">
+      CASHIER CHECK
+    </div>
+
+
     <div class="confetti">
       🎉 🏀 🎉
     </div>
 
+
     <h2>
-      MUKHANG MAY ₱10 KA!
+      SHOW THIS TO THE CASHIER
     </h2>
 
-    <p>
-      Present this screen and your receipt to the cashier.
+
+    <p class="muted">
+      Cashier: watch the full replay before confirming.
     </p>
+
 
 
     <div class="card summary">
 
       <div>
+
         <span>
-          Name
+          Student
         </span>
 
         <strong id="summaryName">
           —
         </strong>
+
       </div>
 
 
       <div>
+
         <span>
-          Receipt
+          UTAK Receipt
         </span>
 
         <strong id="summaryReceipt">
           —
         </strong>
+
       </div>
 
+    </div>
+
+
+
+    <div class="review-label">
+      🎥 CHALLENGE REPLAY
     </div>
 
 
@@ -421,36 +575,49 @@
     ></video>
 
 
+
     <button
       id="cashierApprove"
       class="btn btn-success"
     >
-      YES, NASHOOT NG PIRATA!
+      ✅ YES, NASHOOT NG PIRATA!
     </button>
+
 
     <button
       id="cashierReject"
       class="btn btn-dark"
     >
-      INVALID ATTEMPT
+      ❌ INVALID ATTEMPT
     </button>
 
   </section>
 
 
-  <!-- CASHIER PIN -->
+
+  <!-- ==================================================
+       CASHIER PIN
+  =================================================== -->
+
   <section
     id="screen-pin"
     class="screen"
   >
 
+    <div class="hero-ball">
+      🔐
+    </div>
+
+
     <h2>
-      Cashier Verification 🔐
+      CASHIER VERIFICATION
     </h2>
 
+
     <p class="muted">
-      Authorized staff only.
+      Authorized Pirates' Cafeteria staff only.
     </p>
+
 
 
     <input
@@ -459,15 +626,17 @@
       type="password"
       inputmode="numeric"
       maxlength="8"
+      autocomplete="off"
       placeholder="••••"
-    />
+    >
+
 
 
     <button
       id="verifyPin"
       class="btn btn-primary"
     >
-      CONFIRM
+      CONFIRM SUCCESS
     </button>
 
 
@@ -481,13 +650,298 @@
       class="text-btn"
       data-next="screen-cashier"
     >
-      ← Back to review
+      ← Back to video review
     </button>
 
   </section>
 
 
-  <!-- MY VOUCHER LOOKUP -->
+
+  <!-- ==================================================
+       SUCCESS / VOUCHER ISSUED
+  =================================================== -->
+
+  <section
+    id="screen-voucher"
+    class="screen"
+  >
+
+    <div class="confetti">
+      🎉 🎈 🏀 ☠️ 🎉
+    </div>
+
+
+    <h2>
+      SWAK! NASHOOT MO!
+    </h2>
+
+
+    <p class="muted">
+      Your ₱10 voucher is ready.
+    </p>
+
+
+
+    <div class="voucher">
+
+      <small>
+        PIRATE VOUCHER
+      </small>
+
+
+      <strong>
+        ₱10 OFF
+      </strong>
+
+
+      <span id="voucherCode">
+        KPB-XXXXXX
+      </span>
+
+
+      <span
+        id="voucherStatus"
+        class="status available"
+      >
+        AVAILABLE
+      </span>
+
+    </div>
+
+
+
+    <p
+      id="voucherExpiry"
+      class="muted"
+    >
+      Valid for 7 days only.
+    </p>
+
+
+
+    <div class="voucher-warning">
+      ⚠️ Do not press redeem until you are already at the cashier.
+    </div>
+
+
+
+    <button
+      id="redeemVoucher"
+      class="btn btn-primary"
+    >
+      CLAIM / REDEEM ₱10
+    </button>
+
+
+
+    <button
+      id="newGame"
+      class="text-btn"
+    >
+      Back to home
+    </button>
+
+  </section>
+
+
+
+  <!-- ==================================================
+       CLAIM PHOTO
+  =================================================== -->
+
+  <section
+    id="screen-claim-photo"
+    class="screen"
+  >
+
+    <div class="step-label">
+      CASHIER REDEMPTION
+    </div>
+
+
+    <div class="hero-ball">
+      📸
+    </div>
+
+
+    <h2>
+      TAKE CLAIM EVIDENCE
+    </h2>
+
+
+    <p class="muted">
+      Cashier: take one clear photo as proof of voucher redemption.
+    </p>
+
+
+
+    <div class="card claim-info">
+
+      <div>
+
+        <span>
+          Voucher
+        </span>
+
+        <strong id="claimVoucherCode">
+          —
+        </strong>
+
+      </div>
+
+
+      <div>
+
+        <span>
+          Student
+        </span>
+
+        <strong id="claimStudentName">
+          —
+        </strong>
+
+      </div>
+
+
+      <div>
+
+        <span>
+          Receipt
+        </span>
+
+        <strong id="claimReceiptNumber">
+          —
+        </strong>
+
+      </div>
+
+    </div>
+
+
+
+    <label class="upload-box claim-upload">
+
+      <span>
+        📷 TAKE CLAIM PHOTO
+      </span>
+
+      <small>
+        Required before voucher can be redeemed.
+      </small>
+
+      <input
+        id="claimPhoto"
+        type="file"
+        accept="image/*"
+        capture="environment"
+      >
+
+    </label>
+
+
+
+    <img
+      id="claimPhotoPreview"
+      class="preview hidden"
+      alt="Claim evidence preview"
+    >
+
+
+
+    <button
+      id="confirmClaimPhoto"
+      class="btn btn-success"
+      disabled
+    >
+      CONFIRM & REDEEM ₱10
+    </button>
+
+
+    <p
+      id="claimError"
+      class="error"
+    ></p>
+
+
+    <button
+      id="cancelClaim"
+      class="text-btn"
+    >
+      ← Cancel redemption
+    </button>
+
+  </section>
+
+
+
+  <!-- ==================================================
+       REDEEMED
+  =================================================== -->
+
+  <section
+    id="screen-redeemed"
+    class="screen"
+  >
+
+    <div class="hero-ball">
+      ✅
+    </div>
+
+
+    <h2>
+      VOUCHER REDEEMED!
+    </h2>
+
+
+    <div class="voucher redeemed-voucher">
+
+      <small>
+        PIRATE VOUCHER
+      </small>
+
+
+      <strong>
+        ₱10 OFF
+      </strong>
+
+
+      <span id="redeemedVoucherCode">
+        —
+      </span>
+
+
+      <span class="status redeemed">
+        REDEEMED
+      </span>
+
+    </div>
+
+
+    <p class="muted">
+      Claim evidence saved successfully.
+    </p>
+
+
+    <p id="redeemedAtText">
+      —
+    </p>
+
+
+    <button
+      id="finishRedemption"
+      class="btn btn-primary"
+    >
+      DONE
+    </button>
+
+  </section>
+
+
+
+  <!-- ==================================================
+       MY VOUCHER LOOKUP
+  =================================================== -->
+
   <section
     id="screen-my-voucher"
     class="screen"
@@ -517,18 +971,21 @@
     </p>
 
 
+
     <label>
 
       Name
 
       <input
         id="voucherLookupName"
+        type="text"
         maxlength="60"
-        placeholder="Your name"
         autocomplete="name"
-      />
+        placeholder="Your name"
+      >
 
     </label>
+
 
 
     <label>
@@ -537,11 +994,14 @@
 
       <input
         id="voucherLookupReceipt"
+        type="text"
         maxlength="40"
+        autocomplete="off"
         placeholder="Receipt number"
-      />
+      >
 
     </label>
+
 
 
     <button
@@ -560,75 +1020,8 @@
   </section>
 
 
-  <!-- VOUCHER -->
-  <section
-    id="screen-voucher"
-    class="screen"
-  >
-
-    <div class="confetti">
-      🎉 🎈 🏀 ☠️ 🎉
-    </div>
-
-
-    <h2>
-      SWAK! NASHOOT MO!
-    </h2>
-
-
-    <div class="voucher">
-
-      <small>
-        PIRATE VOUCHER
-      </small>
-
-      <strong>
-        ₱10 OFF
-      </strong>
-
-      <span
-        id="voucherCode"
-      >
-        KPB-XXXXXX
-      </span>
-
-
-      <span
-        id="voucherStatus"
-        class="status available"
-      >
-        AVAILABLE
-      </span>
-
-    </div>
-
-
-    <p
-      id="voucherExpiry"
-      class="muted"
-    >
-      Valid for 7 days only.
-    </p>
-
-
-    <button
-      id="redeemVoucher"
-      class="btn btn-primary"
-    >
-      REDEEM ₱10
-    </button>
-
-
-    <button
-      id="newGame"
-      class="text-btn"
-    >
-      Start new game
-    </button>
-
-  </section>
-
 </main>
+
 
 
 <script
@@ -637,4 +1030,5 @@
 ></script>
 
 </body>
+
 </html>
