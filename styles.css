@@ -1,63 +1,917 @@
-:root{
-  --red:#b5161b; --yellow:#ffc928; --ink:#181818; --paper:#fffdf7;
-  --muted:#727272; --green:#118a4b; --radius:22px;
+:root {
+  --red: #b5161b;
+  --red-dark: #8f1115;
+  --yellow: #ffc928;
+  --yellow-soft: #fff1a8;
+  --white: #ffffff;
+  --black: #171717;
+  --gray: #6f6f6f;
+  --light: #f6f6f6;
+  --green: #1f9d55;
+  --green-dark: #157a41;
+  --border: #e5e5e5;
+  --shadow: 0 12px 30px rgba(0,0,0,.10);
 }
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter,ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f0eee8;color:var(--ink)}
-button,input{font:inherit}
-.app-shell{width:min(100%,520px);min-height:100dvh;margin:auto;background:var(--paper);position:relative;overflow:hidden}
-.screen{display:none;min-height:100dvh;padding:28px 22px 34px;align-items:center;justify-content:center;flex-direction:column;text-align:center}
-.screen.active{display:flex}
-h1{font-size:clamp(38px,10vw,58px);line-height:.92;margin:14px 0 8px;letter-spacing:-2.5px}
-h2{font-size:34px;line-height:1;margin:12px 0}
-p{line-height:1.45}
-.muted{color:var(--muted)}
-.brand-badge,.pill{background:var(--ink);color:white;padding:8px 12px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.8px}
-.hero-ball{font-size:72px;margin-top:14px}
-.tagline{font-weight:950;font-size:21px;color:var(--red)}
-.reward-card{width:100%;background:var(--yellow);border:3px solid var(--ink);border-radius:var(--radius);padding:20px;margin:14px 0 22px;box-shadow:6px 6px 0 var(--ink)}
-.reward-card span,.reward-card small{display:block;font-weight:800}
-.reward-card strong{display:block;font-size:50px;line-height:1}
-.btn{width:100%;border:0;border-radius:16px;padding:17px 18px;font-weight:900;margin:7px 0;cursor:pointer}
-.btn-primary{background:var(--red);color:white}
-.btn-secondary{background:var(--yellow);color:var(--ink)}
-.btn-dark{background:var(--ink);color:white}
-.btn-success{background:var(--green);color:white}
-.btn-record{background:#e51b23;color:#fff}
-.text-btn,.back{border:0;background:transparent;font-weight:800;padding:12px;color:var(--red);cursor:pointer}
-.back{align-self:flex-start;padding-left:0}
-.card{width:100%;border:2px solid #ddd;border-radius:var(--radius);padding:18px;background:white;text-align:left}
-.rules p{margin:11px 0;font-weight:650}
-label{display:block;width:100%;text-align:left;font-weight:800;margin:10px 0}
-input{width:100%;border:2px solid #dadada;border-radius:14px;padding:15px;margin-top:7px;background:white}
-input:focus{outline:3px solid #ffd95f;border-color:var(--ink)}
-.upload-box{border:2px dashed #b9b9b9;border-radius:16px;padding:15px;background:#fff}
-.upload-box small,.upload-box span{display:block}
-.upload-box input{border:0;padding:8px 0 0}
-.preview{width:100%;max-height:260px;object-fit:contain;border-radius:16px;border:1px solid #ddd;background:white}
-.hidden{display:none!important}
-.consent{display:flex;gap:10px;align-items:flex-start;font-weight:500;font-size:13px;color:#555}
-.consent input{width:20px;margin:1px 0 0;flex:0 0 20px}
-.error{min-height:20px;color:#b00020;font-weight:800}
-.camera-screen{padding:0;background:#050505;color:white;justify-content:space-between}
-.camera-top{width:100%;padding:18px;display:flex;justify-content:space-between;align-items:center;z-index:2}
-.timer{font-size:25px;font-weight:950}
-.camera-frame{width:100%;flex:1;position:relative;display:flex;align-items:center;justify-content:center;background:#111;min-height:55dvh}
-.camera-frame video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
-.camera-message{padding:20px;color:#ddd;z-index:1}
-.camera-actions{width:100%;padding:18px 22px 30px}
-.split{width:100%}
-.confetti{font-size:32px}
-.summary div{display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px solid #eee}
-.summary div:last-child{border-bottom:0}
-.summary span{color:var(--muted)}
-.review-video{width:100%;max-height:42dvh;border-radius:18px;background:#000;margin:15px 0}
-.pin{font-size:28px;text-align:center;letter-spacing:8px;max-width:250px}
-.voucher{width:100%;border-radius:28px;background:var(--yellow);border:3px solid var(--ink);padding:26px 15px;box-shadow:7px 7px 0 var(--ink);margin:20px 0}
-.voucher small,.voucher span,.voucher strong{display:block}
-.voucher strong{font-size:60px;line-height:1;margin:8px 0}
-#voucherCode{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:900;margin:10px}
-.status{display:inline-block!important;width:auto;margin:auto;border-radius:999px;padding:7px 12px;font-weight:900;font-size:12px}
-.available{background:#dff6e8;color:#096c38}
-.redeemed{background:#ececec;color:#555}
-@media (min-width:600px){.app-shell{box-shadow:0 0 60px #0002}}
+
+
+/* =========================================
+   RESET
+========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  background:
+    linear-gradient(
+      180deg,
+      #fffaf0 0%,
+      #ffffff 40%,
+      #f7f7f7 100%
+    );
+
+  color: var(--black);
+}
+
+
+/* =========================================
+   APP
+========================================= */
+
+.app-shell {
+  width: 100%;
+  max-width: 560px;
+  min-height: 100vh;
+
+  margin: 0 auto;
+
+  padding:
+    max(20px, env(safe-area-inset-top))
+    18px
+    max(28px, env(safe-area-inset-bottom));
+}
+
+
+.screen {
+  display: none;
+  animation: fadeIn .18s ease;
+}
+
+.screen.active {
+  display: block;
+}
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================
+   TYPOGRAPHY
+========================================= */
+
+h1,
+h2 {
+  margin-top: 0;
+  line-height: .98;
+  letter-spacing: -1px;
+}
+
+h1 {
+  font-size: clamp(38px, 10vw, 60px);
+  text-align: center;
+  font-weight: 1000;
+}
+
+h2 {
+  font-size: clamp(30px, 8vw, 44px);
+  font-weight: 1000;
+}
+
+p {
+  line-height: 1.5;
+}
+
+.muted {
+  color: var(--gray);
+}
+
+.tagline {
+  text-align: center;
+  font-weight: 900;
+  color: var(--red);
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+
+.tiny-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--gray);
+  margin-top: 12px;
+}
+
+
+/* =========================================
+   BRAND
+========================================= */
+
+.brand-badge {
+  display: inline-block;
+
+  padding: 9px 14px;
+
+  border-radius: 999px;
+
+  background: var(--black);
+  color: var(--white);
+
+  font-weight: 900;
+  font-size: 12px;
+
+  letter-spacing: .7px;
+
+  margin-bottom: 18px;
+}
+
+
+.hero-ball {
+  font-size: 76px;
+  text-align: center;
+  margin: 20px 0;
+}
+
+
+.confetti {
+  text-align: center;
+  font-size: 36px;
+  margin: 10px 0 22px;
+}
+
+
+.step-label {
+  display: inline-block;
+
+  background: var(--yellow);
+  color: var(--black);
+
+  font-weight: 1000;
+  font-size: 12px;
+
+  padding: 8px 12px;
+  border-radius: 999px;
+
+  margin-bottom: 14px;
+}
+
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+.btn {
+  width: 100%;
+
+  border: 0;
+
+  padding: 17px 18px;
+
+  border-radius: 16px;
+
+  font-size: 16px;
+  font-weight: 1000;
+
+  cursor: pointer;
+
+  margin-top: 12px;
+
+  transition:
+    transform .08s ease,
+    opacity .12s ease;
+}
+
+
+.btn:active {
+  transform: scale(.985);
+}
+
+
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+
+.btn-primary {
+  background: var(--red);
+  color: var(--white);
+}
+
+
+.btn-primary:hover {
+  background: var(--red-dark);
+}
+
+
+.btn-secondary {
+  background: var(--yellow);
+  color: var(--black);
+}
+
+
+.btn-dark {
+  background: var(--black);
+  color: var(--white);
+}
+
+
+.btn-success {
+  background: var(--green);
+  color: var(--white);
+}
+
+
+.btn-success:hover {
+  background: var(--green-dark);
+}
+
+
+.btn-record {
+  background: var(--red);
+  color: var(--white);
+  box-shadow:
+    0 0 0 5px rgba(181,22,27,.12);
+}
+
+
+.text-btn {
+  display: block;
+
+  width: 100%;
+
+  margin-top: 16px;
+
+  padding: 10px;
+
+  border: 0;
+  background: transparent;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  color: var(--red);
+
+  cursor: pointer;
+}
+
+
+.back {
+  border: 0;
+  background: transparent;
+
+  color: var(--red);
+
+  font-weight: 900;
+  font-size: 15px;
+
+  padding: 8px 0 20px;
+
+  cursor: pointer;
+}
+
+
+/* =========================================
+   CARDS
+========================================= */
+
+.card {
+  background: var(--white);
+
+  border: 1px solid var(--border);
+
+  border-radius: 18px;
+
+  padding: 18px;
+
+  box-shadow: var(--shadow);
+}
+
+
+.reward-card {
+  background:
+    linear-gradient(
+      135deg,
+      var(--yellow) 0%,
+      #ffd95f 100%
+    );
+
+  border-radius: 24px;
+
+  padding: 22px;
+
+  margin: 24px 0;
+
+  text-align: center;
+
+  box-shadow: var(--shadow);
+}
+
+
+.reward-card span,
+.reward-card small {
+  display: block;
+}
+
+
+.reward-card span {
+  font-size: 12px;
+  font-weight: 1000;
+  letter-spacing: 2px;
+}
+
+
+.reward-card strong {
+  display: block;
+
+  font-size: 50px;
+  line-height: 1;
+
+  margin: 8px 0;
+
+  color: var(--red);
+}
+
+
+.reward-card small {
+  font-weight: 700;
+}
+
+
+.rules p {
+  margin: 0 0 14px;
+  font-weight: 700;
+}
+
+
+.rules p:last-child {
+  margin-bottom: 0;
+}
+
+
+/* =========================================
+   FORM
+========================================= */
+
+label {
+  display: block;
+
+  margin-top: 18px;
+
+  font-weight: 900;
+}
+
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+
+  margin-top: 8px;
+
+  padding: 16px;
+
+  border: 2px solid var(--border);
+
+  border-radius: 14px;
+
+  background: var(--white);
+
+  font-size: 17px;
+
+  outline: none;
+}
+
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+  border-color: var(--red);
+}
+
+
+.upload-box {
+  display: block;
+
+  padding: 22px;
+
+  border: 2px dashed var(--red);
+
+  background: #fff9f9;
+
+  border-radius: 18px;
+
+  text-align: center;
+
+  cursor: pointer;
+}
+
+
+.upload-box span {
+  display: block;
+
+  font-size: 17px;
+  font-weight: 1000;
+}
+
+
+.upload-box small {
+  display: block;
+
+  margin-top: 7px;
+
+  color: var(--gray);
+
+  font-weight: 600;
+}
+
+
+.upload-box input {
+  width: 100%;
+  margin-top: 14px;
+}
+
+
+.preview {
+  display: block;
+
+  width: 100%;
+  max-height: 340px;
+
+  object-fit: contain;
+
+  margin-top: 14px;
+
+  border-radius: 16px;
+
+  background: var(--light);
+
+  border: 1px solid var(--border);
+}
+
+
+.consent {
+  display: flex;
+
+  gap: 10px;
+
+  align-items: flex-start;
+
+  padding: 14px;
+
+  margin-top: 18px;
+
+  background: var(--light);
+
+  border-radius: 14px;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  line-height: 1.45;
+}
+
+
+.consent input {
+  margin-top: 3px;
+  transform: scale(1.15);
+}
+
+
+.error {
+  min-height: 20px;
+
+  margin-top: 12px;
+
+  color: var(--red);
+
+  font-weight: 800;
+
+  text-align: center;
+}
+
+
+/* =========================================
+   CAMERA
+========================================= */
+
+.camera-top {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 16px;
+}
+
+
+.pill {
+  display: inline-block;
+
+  padding: 8px 11px;
+
+  border-radius: 999px;
+
+  background: var(--black);
+  color: var(--white);
+
+  font-size: 10px;
+  font-weight: 1000;
+
+  letter-spacing: .5px;
+}
+
+
+.timer {
+  font-size: 25px;
+  font-weight: 1000;
+
+  color: var(--red);
+}
+
+
+.camera-frame {
+  position: relative;
+
+  width: 100%;
+
+  aspect-ratio: 9 / 16;
+
+  max-height: 68vh;
+
+  overflow: hidden;
+
+  border-radius: 22px;
+
+  background: #111;
+
+  box-shadow: var(--shadow);
+}
+
+
+.camera-frame video {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  background: #000;
+}
+
+
+.camera-message {
+  position: absolute;
+
+  left: 20px;
+  right: 20px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  text-align: center;
+
+  color: var(--white);
+
+  font-weight: 800;
+}
+
+
+.camera-actions {
+  margin-top: 12px;
+}
+
+
+/* =========================================
+   RESULT
+========================================= */
+
+.split {
+  display: grid;
+
+  grid-template-columns: 1fr;
+
+  gap: 8px;
+
+  margin-top: 22px;
+}
+
+
+/* =========================================
+   CASHIER REVIEW
+========================================= */
+
+.summary {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 14px;
+
+  margin: 18px 0;
+}
+
+
+.summary span,
+.claim-info span {
+  display: block;
+
+  font-size: 11px;
+
+  color: var(--gray);
+
+  text-transform: uppercase;
+
+  font-weight: 900;
+
+  letter-spacing: .5px;
+}
+
+
+.summary strong,
+.claim-info strong {
+  display: block;
+
+  margin-top: 5px;
+
+  font-size: 16px;
+
+  word-break: break-word;
+}
+
+
+.review-label {
+  margin-top: 18px;
+
+  font-size: 13px;
+  font-weight: 1000;
+
+  color: var(--red);
+}
+
+
+.review-video {
+  width: 100%;
+
+  margin-top: 10px;
+
+  border-radius: 18px;
+
+  background: #000;
+
+  max-height: 62vh;
+
+  object-fit: contain;
+}
+
+
+/* =========================================
+   PIN
+========================================= */
+
+.pin {
+  text-align: center;
+
+  font-size: 30px !important;
+
+  letter-spacing: 10px;
+
+  font-weight: 1000;
+}
+
+
+/* =========================================
+   VOUCHER
+========================================= */
+
+.voucher {
+  padding: 28px 20px;
+
+  margin: 22px 0;
+
+  border-radius: 26px;
+
+  text-align: center;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--yellow),
+      #ffdc69
+    );
+
+  box-shadow: var(--shadow);
+}
+
+
+.voucher small,
+.voucher strong,
+.voucher span {
+  display: block;
+}
+
+
+.voucher small {
+  font-size: 11px;
+
+  font-weight: 1000;
+
+  letter-spacing: 2px;
+}
+
+
+.voucher strong {
+  margin: 10px 0;
+
+  color: var(--red);
+
+  font-size: 56px;
+
+  line-height: 1;
+}
+
+
+#voucherCode,
+#redeemedVoucherCode {
+  font-size: 20px;
+
+  font-weight: 1000;
+
+  letter-spacing: 1px;
+
+  margin-top: 12px;
+}
+
+
+.status {
+  display: inline-block !important;
+
+  margin: 18px auto 0;
+
+  padding: 8px 12px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+
+  font-weight: 1000;
+}
+
+
+.status.available {
+  background: var(--green);
+  color: var(--white);
+}
+
+
+.status.redeemed {
+  background: var(--black);
+  color: var(--white);
+}
+
+
+.status.expired {
+  background: #777;
+  color: var(--white);
+}
+
+
+.voucher-warning {
+  padding: 14px;
+
+  border-radius: 14px;
+
+  background: #fff4d0;
+
+  color: #6c4a00;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  line-height: 1.4;
+}
+
+
+/* =========================================
+   CLAIM EVIDENCE
+========================================= */
+
+.claim-info {
+  margin-top: 18px;
+}
+
+
+.claim-info > div {
+  padding: 11px 0;
+
+  border-bottom: 1px solid var(--border);
+}
+
+
+.claim-info > div:last-child {
+  border-bottom: 0;
+}
+
+
+.claim-upload {
+  margin-top: 18px;
+}
+
+
+.redeemed-voucher {
+  filter: saturate(.7);
+}
+
+
+/* =========================================
+   HELPERS
+========================================= */
+
+.hidden {
+  display: none !important;
+}
+
+
+/* =========================================
+   SMALL PHONES
+========================================= */
+
+@media (max-width: 390px) {
+
+  .app-shell {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+
+  h1 {
+    font-size: 37px;
+  }
+
+
+  h2 {
+    font-size: 30px;
+  }
+
+
+  .reward-card strong {
+    font-size: 44px;
+  }
+
+
+  .voucher strong {
+    font-size: 48px;
+  }
+
+
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+/* =========================================
+   LANDSCAPE / TABLET
+========================================= */
+
+@media (min-width: 700px) {
+
+  .app-shell {
+    max-width: 620px;
+  }
+
+
+  .camera-frame {
+    aspect-ratio: 3 / 4;
+  }
+
+}
