@@ -1,29 +1,51 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#b5161b" />
 
-  <title>Kapirata Admin Dashboard</title>
+  <meta charset="utf-8">
 
-  <link rel="stylesheet" href="admin.css" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <meta
+    name="theme-color"
+    content="#b5161b"
+  >
+
+  <title>
+    Kapirata Admin Dashboard
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="admin.css"
+  >
+
 </head>
 
+
 <body>
+
 
 <header class="topbar">
 
   <div>
-    <small>PIRATES' CAFETERIA</small>
+
+    <small>
+      🏴‍☠️ PIRATES' CAFETERIA
+    </small>
 
     <h1>
       Kapirata Admin
     </h1>
 
     <p>
-      Basketball Challenge Dashboard
+      Basketball Challenge Monitoring
     </p>
+
   </div>
 
 
@@ -36,9 +58,12 @@
       ↻ Refresh
     </button>
 
+
     <a
       class="btn dark"
       href="index.html"
+      target="_blank"
+      rel="noopener"
     >
       Open Game ↗
     </a>
@@ -48,14 +73,18 @@
 </header>
 
 
+
 <main class="dashboard">
 
 
-  <!-- SUMMARY -->
+  <!-- ==================================================
+       SUMMARY
+  =================================================== -->
 
   <section class="stats">
 
     <div class="stat-card">
+
       <span id="totalCount">
         0
       </span>
@@ -63,21 +92,25 @@
       <small>
         TOTAL ATTEMPTS
       </small>
+
     </div>
 
 
     <div class="stat-card">
+
       <span id="approvedCount">
         0
       </span>
 
       <small>
-        SUCCESSFUL
+        SUCCESSFUL SHOTS
       </small>
+
     </div>
 
 
     <div class="stat-card">
+
       <span id="availableCount">
         0
       </span>
@@ -85,10 +118,12 @@
       <small>
         AVAILABLE VOUCHERS
       </small>
+
     </div>
 
 
     <div class="stat-card">
+
       <span id="redeemedCount">
         0
       </span>
@@ -96,20 +131,37 @@
       <small>
         REDEEMED
       </small>
+
+    </div>
+
+
+    <div class="stat-card">
+
+      <span id="claimPhotoCount">
+        0
+      </span>
+
+      <small>
+        CLAIM PHOTOS
+      </small>
+
     </div>
 
   </section>
 
 
-  <!-- CONTROLS -->
+
+  <!-- ==================================================
+       SEARCH / FILTER
+  =================================================== -->
 
   <section class="toolbar">
 
     <input
       id="search"
       type="search"
-      placeholder="Search name, receipt, voucher..."
-    />
+      placeholder="Search student, receipt or voucher..."
+    >
 
 
     <select id="filter">
@@ -119,7 +171,7 @@
       </option>
 
       <option value="approved">
-        Successful
+        Successful shot
       </option>
 
       <option value="pending_cashier">
@@ -131,19 +183,19 @@
       </option>
 
       <option value="cashier_rejected">
-        Cashier rejected
+        Invalid / Rejected
       </option>
 
       <option value="available">
-        Available voucher
+        Voucher available
       </option>
 
       <option value="redeemed">
-        Redeemed voucher
+        Voucher redeemed
       </option>
 
       <option value="expired">
-        Expired voucher
+        Voucher expired
       </option>
 
     </select>
@@ -151,7 +203,10 @@
   </section>
 
 
-  <!-- STATUS -->
+
+  <!-- ==================================================
+       CONNECTION STATUS
+  =================================================== -->
 
   <section
     id="statusBox"
@@ -161,7 +216,10 @@
   </section>
 
 
-  <!-- DESKTOP TABLE -->
+
+  <!-- ==================================================
+       DESKTOP TABLE
+  =================================================== -->
 
   <section class="table-wrap">
 
@@ -188,7 +246,7 @@
           </th>
 
           <th>
-            Media
+            Evidence
           </th>
 
           <th>
@@ -202,22 +260,28 @@
 
       <tbody
         id="attemptRows"
-      ></tbody>
+      >
+      </tbody>
 
     </table>
 
   </section>
 
 
-  <!-- MOBILE CARDS -->
+
+  <!-- ==================================================
+       MOBILE CARDS
+  =================================================== -->
 
   <section
     id="mobileCards"
     class="mobile-cards"
-  ></section>
+  >
+  </section>
 
 
 </main>
+
 
 
 <script
@@ -225,5 +289,7 @@
   src="admin.js"
 ></script>
 
+
 </body>
+
 </html>
