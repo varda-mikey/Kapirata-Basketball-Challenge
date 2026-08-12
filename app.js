@@ -14,38 +14,47 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
+/* =========================
+   FIREBASE
+========================= */
+
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 
-// GOOGLE APPS SCRIPT BRIDGE
+/* =========================
+   GOOGLE DRIVE BRIDGE
+========================= */
+
 const MEDIA_BRIDGE_URL =
   "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
 
 
+/* =========================
+   APP STATE
+========================= */
+
 const $ = (id) => document.getElementById(id);
 
-const screens =
-  [...document.querySelectorAll(".screen")];
-
+const screens = [
+  ...document.querySelectorAll(".screen")
+];
 
 let stream = null;
-
 let recorder = null;
-
 let chunks = [];
-
 let videoBlob = null;
 
 let receiptFile = null;
-
 let receiptPreviewUrl = null;
 
 let activeAttempt = null;
-
 let timerHandle = null;
 
 
+/* =========================
+   SCREEN NAVIGATION
+========================= */
 
 function showScreen(id) {
 
@@ -61,7 +70,6 @@ function showScreen(id) {
   window.scrollTo(0, 0);
 
 }
-
 
 
 document
@@ -82,1362 +90,1187 @@ document
   });
 
 
+/* =========================
+   RECEIPT PHOTO
+========================= */
 
-$("receiptPhoto")
-  .addEventListener(
-    "change",
-    (event) => {
+$("receiptPhoto").addEventListener(
+  "change",
+  (event) => {
 
-      const file =
-        event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
 
-      if (!file) {
-        return;
-      }
-
-
-      if (
-        file.size >
-        8 * 1024 * 1024
-      ) {
-
-        $("formError").textContent =
-          "Receipt photo is too large. Please use a photo under 8 MB.";
-
-        event.target.value = "";
-
-        return;
-
-      }
+    if (!file) {
+      return;
+    }
 
 
-      receiptFile = file;
+    if (
+      file.size >
+      8 * 1024 * 1024
+    ) {
 
+      $("formError").textContent =
+        "Receipt photo is too large. Please use a photo under 8 MB.";
 
-      if (
-        receiptPreviewUrl
-      ) {
+      event.target.value = "";
 
-        URL.revokeObjectURL(
-          receiptPreviewUrl
-        );
-
-      }
-
-
-      receiptPreviewUrl =
-        URL.createObjectURL(
-          file
-        );
-
-
-      $("receiptPreview").src =
-        receiptPreviewUrl;
-
-
-      $("receiptPreview")
-        .classList
-        .remove("hidden");
+      return;
 
     }
-  );
 
 
-
-$("continueToCamera")
-  .addEventListener(
-    "click",
-    async () => {
-
-      const name =
-        $("playerName")
-          .value
-          .trim();
+    receiptFile = file;
 
 
-      const receipt =
-        $("receiptNumber")
-          .value
-          .trim();
+    if (receiptPreviewUrl) {
+
+      URL.revokeObjectURL(
+        receiptPreviewUrl
+      );
+
+    }
 
 
-      const hasPhoto =
-        !!receiptFile;
+    receiptPreviewUrl =
+      URL.createObjectURL(
+        file
+      );
 
 
-      const consent =
-        $("consent")
-          .checked;
+    $("receiptPreview").src =
+      receiptPreviewUrl;
+
+
+    $("receiptPreview")
+      .classList
+      .remove("hidden");
+
+  }
+);
+
+
+/* =========================
+   START GAME
+========================= */
+
+$("continueToCamera").addEventListener(
+  "click",
+  async () => {
+
+    const name =
+      $("playerName")
+        .value
+        .trim();
+
+
+    const receipt =
+      $("receiptNumber")
+        .value
+        .trim();
+
+
+    const consent =
+      $("consent")
+        .checked;
+
+
+    if (
+      !name ||
+      !receipt ||
+      !receiptFile ||
+      !consent
+    ) {
+
+      $("formError").textContent =
+        "Name, receipt number, receipt photo, and consent are required.";
+
+      return;
+
+    }
+
+
+    $("continueToCamera").disabled =
+      true;
+
+
+    $("continueToCamera").textContent =
+      "CHECKING RECEIPT...";
+
+
+    $("formError").textContent =
+      "";
+
+
+    try {
+
+      const normalizedReceipt =
+        normalizeReceipt(
+          receipt
+        );
+
+
+      const receiptRef =
+        doc(
+          db,
+          "receipts",
+          normalizedReceipt
+        );
+
+
+      const receiptSnap =
+        await getDoc(
+          receiptRef
+        );
 
 
       if (
-        !name ||
-        !receipt ||
-        !hasPhoto ||
-        !consent
+        receiptSnap.exists()
       ) {
 
         $("formError").textContent =
-          "Name, receipt number, receipt photo, and consent are required.";
+          "This receipt was already used.";
 
         return;
 
       }
 
 
-      $("continueToCamera")
-        .disabled =
-        true;
+      const attemptId =
+        crypto.randomUUID();
 
 
-      $("continueToCamera")
-        .textContent =
-        "CHECKING RECEIPT...";
+      activeAttempt = {
+
+        id:
+          attemptId,
+
+        name:
+          name,
+
+        receipt:
+          receipt,
+
+        normalizedReceipt:
+          normalizedReceipt,
+
+        result:
+          "uploading_receipt"
+
+      };
 
 
-      try {
-
-        const normalizedReceipt =
-          normalizeReceipt(
-            receipt
-          );
-
-
-        const receiptRef =
-          doc(
-            db,
-            "receipts",
-            normalizedReceipt
-          );
+      const receiptFileName =
+        buildReceiptFileName(
+          activeAttempt,
+          receiptFile
+        );
 
 
-        const receiptSnap =
-          await getDoc(
-            receiptRef
-          );
+      activeAttempt.receiptFileName =
+        receiptFileName;
 
 
-        if (
-          receiptSnap.exists()
-        ) {
+      /*
+       Create database record first
+       so the same receipt cannot
+       immediately be reused.
+      */
 
-          $("formError").textContent =
-            "This receipt was already used.";
+      await setDoc(
 
-          return;
+        doc(
+          db,
+          "attempts",
+          attemptId
+        ),
 
-        }
+        {
 
-
-        activeAttempt = {
-
-          id:
-            crypto.randomUUID(),
+          attemptId:
+            attemptId,
 
           name:
             name,
 
-          receipt:
+          receiptNumber:
             receipt,
 
           normalizedReceipt:
             normalizedReceipt,
 
+          receiptFileName:
+            receiptFileName,
+
           result:
-            "started"
+            "uploading_receipt",
 
-        };
+          createdAt:
+            serverTimestamp()
 
+        }
 
-        await setDoc(
-
-          doc(
-            db,
-            "attempts",
-            activeAttempt.id
-          ),
-
-          {
-
-            attemptId:
-              activeAttempt.id,
-
-            name:
-              name,
-
-            receiptNumber:
-              receipt,
-
-            normalizedReceipt:
-              normalizedReceipt,
-
-            result:
-              "started",
-
-            createdAt:
-              serverTimestamp()
-
-          }
-
-        );
+      );
 
 
-        await setDoc(
+      await setDoc(
 
-          receiptRef,
+        receiptRef,
 
-          {
+        {
 
-            receiptNumber:
-              receipt,
+          receiptNumber:
+            receipt,
 
-            normalizedReceipt:
-              normalizedReceipt,
+          normalizedReceipt:
+            normalizedReceipt,
 
-            attemptId:
-              activeAttempt.id,
+          attemptId:
+            attemptId,
 
-            name:
-              name,
+          name:
+            name,
 
-            status:
-              "locked",
+          receiptFileName:
+            receiptFileName,
 
-            lockedAt:
-              serverTimestamp()
+          status:
+            "locked",
 
-          }
+          lockedAt:
+            serverTimestamp()
 
-        );
+        }
 
-
-        $("formError")
-          .textContent =
-          "Uploading receipt...";
+      );
 
 
-        const receiptUpload =
-          await uploadToDrive({
+      $("formError").textContent =
+        "Uploading receipt...";
 
-            type:
-              "receipt",
 
-            file:
-              receiptFile,
+      /*
+       Upload to Google Drive.
 
-            fileName:
-              buildReceiptFileName(
-                activeAttempt
-              )
+       Apps Script ContentService redirects
+       its browser response. We intentionally
+       use no-cors and do not try to read
+       the returned JSON.
+      */
+
+      await uploadToDrive({
+
+        type:
+          "receipt",
+
+        file:
+          receiptFile,
+
+        fileName:
+          receiptFileName
+
+      });
+
+
+      activeAttempt.result =
+        "started";
+
+
+      await setDoc(
+
+        doc(
+          db,
+          "attempts",
+          attemptId
+        ),
+
+        {
+
+          result:
+            "started",
+
+          receiptUploadStatus:
+            "sent",
+
+          receiptUploadedAt:
+            serverTimestamp()
+
+        },
+
+        {
+          merge:
+            true
+        }
+
+      );
+
+
+      await setDoc(
+
+        receiptRef,
+
+        {
+
+          uploadStatus:
+            "sent",
+
+          updatedAt:
+            serverTimestamp()
+
+        },
+
+        {
+          merge:
+            true
+        }
+
+      );
+
+
+      $("formError").textContent =
+        "";
+
+
+      showScreen(
+        "screen-camera"
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+
+      $("formError").textContent =
+        "Could not start the game. Please check your connection and try again.";
+
+    }
+
+    finally {
+
+      $("continueToCamera").disabled =
+        false;
+
+
+      $("continueToCamera").textContent =
+        "GAME NA BES!";
+
+    }
+
+  }
+);
+
+
+/* =========================
+   CAMERA
+========================= */
+
+$("enableCamera").addEventListener(
+  "click",
+  async () => {
+
+    try {
+
+      stream =
+        await navigator
+          .mediaDevices
+          .getUserMedia({
+
+            video: {
+
+              facingMode: {
+                ideal:
+                  "environment"
+              }
+
+            },
+
+            audio:
+              true
 
           });
 
 
-        if (
-          !receiptUpload.ok
-        ) {
+      $("camera").srcObject =
+        stream;
 
-          throw new Error(
-            receiptUpload.error ||
-            "Receipt upload failed."
-          );
 
-        }
-
-
-        activeAttempt.receiptFileId =
-          receiptUpload.fileId;
-
-
-        activeAttempt.receiptViewUrl =
-          receiptUpload.viewUrl;
-
-
-        activeAttempt.receiptDirectUrl =
-          receiptUpload.directUrl;
-
-
-        await setDoc(
-
-          doc(
-            db,
-            "attempts",
-            activeAttempt.id
-          ),
-
-          {
-
-            receiptFileId:
-              receiptUpload.fileId,
-
-            receiptViewUrl:
-              receiptUpload.viewUrl,
-
-            receiptDirectUrl:
-              receiptUpload.directUrl,
-
-            receiptUploadedAt:
-              serverTimestamp()
-
-          },
-
-          {
-            merge:
-              true
-          }
-
-        );
-
-
-        await setDoc(
-
-          receiptRef,
-
-          {
-
-            receiptFileId:
-              receiptUpload.fileId,
-
-            receiptViewUrl:
-              receiptUpload.viewUrl,
-
-            updatedAt:
-              serverTimestamp()
-
-          },
-
-          {
-            merge:
-              true
-          }
-
-        );
-
-
-        $("formError")
-          .textContent =
-          "";
-
-
-        showScreen(
-          "screen-camera"
-        );
-
-      }
-
-      catch (error) {
-
-        console.error(
-          error
-        );
-
-
-        $("formError")
-          .textContent =
-          "Could not save the receipt or connect to the database. Please try again.";
-
-      }
-
-      finally {
-
-        $("continueToCamera")
-          .disabled =
-          false;
-
-
-        $("continueToCamera")
-          .textContent =
-          "GAME NA BES!";
-
-      }
-
-    }
-  );
-
-
-
-$("enableCamera")
-  .addEventListener(
-    "click",
-    async () => {
-
-      try {
-
-        stream =
-          await navigator
-            .mediaDevices
-            .getUserMedia({
-
-              video: {
-
-                facingMode: {
-                  ideal:
-                    "environment"
-                }
-
-              },
-
-              audio:
-                true
-
-            });
-
-
-        $("camera")
-          .srcObject =
-          stream;
-
-
-        $("cameraMessage")
-          .classList
-          .add("hidden");
-
-
-        $("enableCamera")
-          .classList
-          .add("hidden");
-
-
-        $("startRecording")
-          .classList
-          .remove("hidden");
-
-      }
-
-      catch (error) {
-
-        console.error(
-          error
-        );
-
-
-        $("cameraMessage")
-          .textContent =
-          "Camera permission was not granted. Please allow camera access in your browser settings.";
-
-      }
-
-    }
-  );
-
-
-
-$("startRecording")
-  .addEventListener(
-    "click",
-    () => {
-
-      if (!stream) {
-        return;
-      }
-
-
-      chunks = [];
-
-      videoBlob =
-        null;
-
-
-      const preferred =
-        [
-
-          "video/webm;codecs=vp9,opus",
-
-          "video/webm;codecs=vp8,opus",
-
-          "video/webm",
-
-          "video/mp4"
-
-        ].find(
-          (type) =>
-            MediaRecorder
-              .isTypeSupported?.(
-                type
-              )
-        );
-
-
-      try {
-
-        recorder =
-          preferred
-
-            ? new MediaRecorder(
-                stream,
-                {
-                  mimeType:
-                    preferred
-                }
-              )
-
-            : new MediaRecorder(
-                stream
-              );
-
-      }
-
-      catch {
-
-        recorder =
-          new MediaRecorder(
-            stream
-          );
-
-      }
-
-
-      recorder.ondataavailable =
-        (event) => {
-
-          if (
-            event.data?.size
-          ) {
-
-            chunks.push(
-              event.data
-            );
-
-          }
-
-        };
-
-
-      recorder.onstop =
-        () => {
-
-          videoBlob =
-            new Blob(
-              chunks,
-              {
-                type:
-                  recorder.mimeType ||
-                  "video/webm"
-              }
-            );
-
-
-          const url =
-            URL.createObjectURL(
-              videoBlob
-            );
-
-
-          $("playback").src =
-            url;
-
-
-          $("cashierPlayback").src =
-            url;
-
-
-          $("camera")
-            .classList
-            .add("hidden");
-
-
-          $("playback")
-            .classList
-            .remove("hidden");
-
-
-          $("stopRecording")
-            .classList
-            .add("hidden");
-
-
-          clearInterval(
-            timerHandle
-          );
-
-
-          $("timer")
-            .textContent =
-            "00:00";
-
-
-          setTimeout(
-            () => {
-
-              showScreen(
-                "screen-result"
-              );
-
-            },
-            700
-          );
-
-        };
-
-
-      recorder.start(
-        250
-      );
-
-
-      $("startRecording")
+      $("cameraMessage")
         .classList
         .add("hidden");
 
 
-      $("stopRecording")
+      $("enableCamera")
+        .classList
+        .add("hidden");
+
+
+      $("startRecording")
         .classList
         .remove("hidden");
 
+    }
 
-      let seconds =
-        10;
+    catch (error) {
 
-
-      $("timer")
-        .textContent =
-        "00:10";
+      console.error(error);
 
 
-      clearInterval(
-        timerHandle
+      $("cameraMessage").textContent =
+        "Camera permission was not granted. Please allow camera access in your browser settings.";
+
+    }
+
+  }
+);
+
+
+/* =========================
+   RECORD VIDEO
+========================= */
+
+$("startRecording").addEventListener(
+  "click",
+  () => {
+
+    if (!stream) {
+      return;
+    }
+
+
+    chunks = [];
+
+    videoBlob =
+      null;
+
+
+    const preferred =
+      [
+
+        "video/webm;codecs=vp8,opus",
+
+        "video/webm",
+
+        "video/mp4"
+
+      ].find(
+        (type) =>
+          MediaRecorder
+            .isTypeSupported?.(
+              type
+            )
       );
 
 
-      timerHandle =
-        setInterval(
-          () => {
+    try {
 
-            seconds--;
+      recorder =
+        new MediaRecorder(
+          stream,
+          {
+
+            ...(preferred
+              ? {
+                  mimeType:
+                    preferred
+                }
+              : {}),
+
+            videoBitsPerSecond:
+              1500000,
+
+            audioBitsPerSecond:
+              64000
+
+          }
+        );
+
+    }
+
+    catch {
+
+      recorder =
+        new MediaRecorder(
+          stream
+        );
+
+    }
 
 
-            $("timer")
-              .textContent =
-              `00:${String(seconds).padStart(2, "0")}`;
+    recorder.ondataavailable =
+      (event) => {
+
+        if (
+          event.data?.size
+        ) {
+
+          chunks.push(
+            event.data
+          );
+
+        }
+
+      };
 
 
-            if (
-              seconds <= 0 &&
-              recorder?.state ===
-                "recording"
-            ) {
+    recorder.onstop =
+      () => {
 
-              recorder.stop();
+        videoBlob =
+          new Blob(
+            chunks,
+            {
+
+              type:
+                recorder.mimeType ||
+                "video/webm"
 
             }
+          );
+
+
+        const videoUrl =
+          URL.createObjectURL(
+            videoBlob
+          );
+
+
+        $("playback").src =
+          videoUrl;
+
+
+        $("cashierPlayback").src =
+          videoUrl;
+
+
+        $("camera")
+          .classList
+          .add("hidden");
+
+
+        $("playback")
+          .classList
+          .remove("hidden");
+
+
+        $("stopRecording")
+          .classList
+          .add("hidden");
+
+
+        clearInterval(
+          timerHandle
+        );
+
+
+        $("timer").textContent =
+          "00:00";
+
+
+        setTimeout(
+          () => {
+
+            showScreen(
+              "screen-result"
+            );
 
           },
-          1000
+          500
         );
 
-    }
-  );
+      };
 
 
-
-$("stopRecording")
-  .addEventListener(
-    "click",
-    () => {
-
-      if (
-        recorder?.state ===
-        "recording"
-      ) {
-
-        recorder.stop();
-
-      }
-
-    }
-  );
+    recorder.start(
+      250
+    );
 
 
-
-$("missedShot")
-  .addEventListener(
-    "click",
-    async () => {
-
-      if (
-        activeAttempt
-      ) {
-
-        activeAttempt.result =
-          "missed";
+    $("startRecording")
+      .classList
+      .add("hidden");
 
 
-        await updateAttemptResult(
-          "missed"
-        );
-
-      }
+    $("stopRecording")
+      .classList
+      .remove("hidden");
 
 
-      stopCamera();
+    let seconds =
+      10;
 
 
-      showScreen(
-        "screen-missed"
+    $("timer").textContent =
+      "00:10";
+
+
+    clearInterval(
+      timerHandle
+    );
+
+
+    timerHandle =
+      setInterval(
+        () => {
+
+          seconds--;
+
+
+          $("timer").textContent =
+            `00:${String(seconds).padStart(2, "0")}`;
+
+
+          if (
+            seconds <= 0 &&
+            recorder?.state ===
+              "recording"
+          ) {
+
+            recorder.stop();
+
+          }
+
+        },
+        1000
       );
 
+  }
+);
+
+
+$("stopRecording").addEventListener(
+  "click",
+  () => {
+
+    if (
+      recorder?.state ===
+      "recording"
+    ) {
+
+      recorder.stop();
+
     }
-  );
+
+  }
+);
 
 
+/* =========================
+   MISSED
+========================= */
 
-$("madeShot")
-  .addEventListener(
-    "click",
-    async () => {
+$("missedShot").addEventListener(
+  "click",
+  async () => {
 
-      if (
-        !videoBlob
-      ) {
-
-        alert(
-          "No video was recorded."
-        );
-
-        return;
-
-      }
-
+    if (activeAttempt) {
 
       activeAttempt.result =
-        "pending_cashier";
+        "missed";
 
 
       await updateAttemptResult(
-        "pending_cashier"
-      );
-
-
-      $("summaryName")
-        .textContent =
-        activeAttempt.name;
-
-
-      $("summaryReceipt")
-        .textContent =
-        activeAttempt.receipt;
-
-
-      stopCamera();
-
-
-      showScreen(
-        "screen-cashier"
+        "missed"
       );
 
     }
-  );
 
 
-
-$("cashierReject")
-  .addEventListener(
-    "click",
-    async () => {
-
-      activeAttempt.result =
-        "cashier_rejected";
+    stopCamera();
 
 
-      await updateAttemptResult(
-        "cashier_rejected"
-      );
+    showScreen(
+      "screen-missed"
+    );
 
+  }
+);
+
+
+/* =========================
+   STUDENT SAYS SUCCESS
+========================= */
+
+$("madeShot").addEventListener(
+  "click",
+  async () => {
+
+    if (!videoBlob) {
 
       alert(
-        "Attempt marked invalid."
+        "No video was recorded."
+      );
+
+      return;
+
+    }
+
+
+    activeAttempt.result =
+      "pending_cashier";
+
+
+    await updateAttemptResult(
+      "pending_cashier"
+    );
+
+
+    $("summaryName").textContent =
+      activeAttempt.name;
+
+
+    $("summaryReceipt").textContent =
+      activeAttempt.receipt;
+
+
+    stopCamera();
+
+
+    showScreen(
+      "screen-cashier"
+    );
+
+  }
+);
+
+
+/* =========================
+   CASHIER REJECT
+========================= */
+
+$("cashierReject").addEventListener(
+  "click",
+  async () => {
+
+    activeAttempt.result =
+      "cashier_rejected";
+
+
+    await updateAttemptResult(
+      "cashier_rejected"
+    );
+
+
+    alert(
+      "Attempt marked invalid."
+    );
+
+
+    resetGame();
+
+  }
+);
+
+
+/* =========================
+   CASHIER APPROVE
+========================= */
+
+$("cashierApprove").addEventListener(
+  "click",
+  () => {
+
+    showScreen(
+      "screen-pin"
+    );
+
+  }
+);
+
+
+/* =========================
+   CASHIER PIN + VIDEO SAVE
+========================= */
+
+$("verifyPin").addEventListener(
+  "click",
+  async () => {
+
+    /*
+      Temporary MVP PIN.
+
+      Later we should move this out
+      of GitHub and into a secure
+      cashier/admin system.
+    */
+
+    const DEMO_PIN =
+      "0953";
+
+
+    if (
+      $("cashierPin").value !==
+      DEMO_PIN
+    ) {
+
+      $("pinError").textContent =
+        "Incorrect cashier code.";
+
+      return;
+
+    }
+
+
+    if (!videoBlob) {
+
+      $("pinError").textContent =
+        "Successful video is missing.";
+
+      return;
+
+    }
+
+
+    $("pinError").textContent =
+      "";
+
+
+    $("verifyPin").disabled =
+      true;
+
+
+    $("verifyPin").textContent =
+      "SAVING VIDEO...";
+
+
+    try {
+
+      const videoFileName =
+        buildVideoFileName(
+          activeAttempt,
+          videoBlob
+        );
+
+
+      activeAttempt.videoFileName =
+        videoFileName;
+
+
+      /*
+       Upload successful video only.
+      */
+
+      await uploadToDrive({
+
+        type:
+          "video",
+
+        file:
+          videoBlob,
+
+        fileName:
+          videoFileName
+
+      });
+
+
+      $("verifyPin").textContent =
+        "CREATING VOUCHER...";
+
+
+      const voucherCode =
+        generateVoucherCode();
+
+
+      const issuedDate =
+        new Date();
+
+
+      const expiryDate =
+        new Date(
+          issuedDate
+        );
+
+
+      expiryDate.setDate(
+        expiryDate.getDate() +
+        7
       );
 
 
-      resetGame();
+      activeAttempt.result =
+        "approved";
 
-    }
-  );
 
+      activeAttempt.voucherCode =
+        voucherCode;
 
 
-$("cashierApprove")
-  .addEventListener(
-    "click",
-    () => {
+      activeAttempt.voucherStatus =
+        "available";
 
-      showScreen(
-        "screen-pin"
-      );
 
-    }
-  );
+      activeAttempt.expiresAt =
+        expiryDate;
 
 
+      await setDoc(
 
-$("verifyPin")
-  .addEventListener(
-    "click",
-    async () => {
+        doc(
+          db,
+          "attempts",
+          activeAttempt.id
+        ),
 
-      const DEMO_PIN =
-        "0953";
+        {
 
+          result:
+            "approved",
 
-      if (
-        $("cashierPin").value !==
-        DEMO_PIN
-      ) {
+          successfulVideoFileName:
+            videoFileName,
 
-        $("pinError")
-          .textContent =
-          "Incorrect cashier code.";
+          videoUploadStatus:
+            "sent",
 
-        return;
-
-      }
-
-
-      $("pinError")
-        .textContent =
-        "";
-
-
-      $("verifyPin")
-        .disabled =
-        true;
-
-
-      $("verifyPin")
-        .textContent =
-        "SAVING VIDEO...";
-
-
-      try {
-
-        if (
-          !videoBlob
-        ) {
-
-          throw new Error(
-            "Successful video is missing."
-          );
-
-        }
-
-
-        const videoUpload =
-          await uploadToDrive({
-
-            type:
-              "video",
-
-            file:
-              videoBlob,
-
-            fileName:
-              buildVideoFileName(
-                activeAttempt,
-                videoBlob
-              )
-
-          });
-
-
-        if (
-          !videoUpload.ok
-        ) {
-
-          throw new Error(
-            videoUpload.error ||
-            "Video upload failed."
-          );
-
-        }
-
-
-        activeAttempt.videoFileId =
-          videoUpload.fileId;
-
-
-        activeAttempt.videoViewUrl =
-          videoUpload.viewUrl;
-
-
-        activeAttempt.videoDirectUrl =
-          videoUpload.directUrl;
-
-
-        const code =
-          generateVoucherCode();
-
-
-        const issuedDate =
-          new Date();
-
-
-        const expiryDate =
-          new Date(
-            issuedDate
-          );
-
-
-        expiryDate.setDate(
-          expiryDate.getDate() +
-          7
-        );
-
-
-        activeAttempt.result =
-          "approved";
-
-
-        activeAttempt.voucherCode =
-          code;
-
-
-        activeAttempt.voucherStatus =
-          "available";
-
-
-        activeAttempt.expiresAt =
-          expiryDate;
-
-
-        await setDoc(
-
-          doc(
-            db,
-            "attempts",
-            activeAttempt.id
-          ),
-
-          {
-
-            result:
-              "approved",
-
-            videoFileId:
-              videoUpload.fileId,
-
-            videoViewUrl:
-              videoUpload.viewUrl,
-
-            videoDirectUrl:
-              videoUpload.directUrl,
-
-            videoUploadedAt:
-              serverTimestamp(),
-
-            voucherCode:
-              code,
-
-            voucherStatus:
-              "available",
-
-            validatedAt:
-              serverTimestamp(),
-
-            expiresAt:
-              Timestamp.fromDate(
-                expiryDate
-              )
-
-          },
-
-          {
-            merge:
-              true
-          }
-
-        );
-
-
-        await setDoc(
-
-          doc(
-            db,
-            "vouchers",
-            code
-          ),
-
-          {
-
-            voucherCode:
-              code,
-
-            attemptId:
-              activeAttempt.id,
-
-            name:
-              activeAttempt.name,
-
-            receiptNumber:
-              activeAttempt.receipt,
-
-            normalizedReceipt:
-              activeAttempt.normalizedReceipt,
-
-            amount:
-              10,
-
-            status:
-              "available",
-
-            issuedAt:
-              serverTimestamp(),
-
-            expiresAt:
-              Timestamp.fromDate(
-                expiryDate
-              )
-
-          }
-
-        );
-
-
-        await setDoc(
-
-          doc(
-            db,
-            "receipts",
-            activeAttempt.normalizedReceipt
-          ),
-
-          {
-
-            status:
-              "used",
-
-            result:
-              "approved",
-
-            voucherCode:
-              code,
-
-            updatedAt:
-              serverTimestamp()
-
-          },
-
-          {
-            merge:
-              true
-          }
-
-        );
-
-
-        displayVoucher({
+          videoUploadedAt:
+            serverTimestamp(),
 
           voucherCode:
-            code,
+            voucherCode,
 
-          status:
+          voucherStatus:
             "available",
+
+          validatedAt:
+            serverTimestamp(),
 
           expiresAt:
             Timestamp.fromDate(
               expiryDate
             )
 
-        });
+        },
+
+        {
+          merge:
+            true
+        }
+
+      );
 
 
-        rememberVoucher(
-          code
-        );
+      await setDoc(
+
+        doc(
+          db,
+          "vouchers",
+          voucherCode
+        ),
+
+        {
+
+          voucherCode:
+            voucherCode,
+
+          attemptId:
+            activeAttempt.id,
+
+          name:
+            activeAttempt.name,
+
+          receiptNumber:
+            activeAttempt.receipt,
+
+          normalizedReceipt:
+            activeAttempt
+              .normalizedReceipt,
+
+          amount:
+            10,
+
+          status:
+            "available",
+
+          issuedAt:
+            serverTimestamp(),
+
+          expiresAt:
+            Timestamp.fromDate(
+              expiryDate
+            )
+
+        }
+
+      );
 
 
-        showScreen(
-          "screen-voucher"
-        );
+      await setDoc(
 
-      }
+        doc(
+          db,
+          "receipts",
+          activeAttempt
+            .normalizedReceipt
+        ),
 
-      catch (error) {
+        {
 
-        console.error(
-          error
-        );
+          status:
+            "used",
+
+          result:
+            "approved",
+
+          voucherCode:
+            voucherCode,
+
+          updatedAt:
+            serverTimestamp()
+
+        },
+
+        {
+          merge:
+            true
+        }
+
+      );
 
 
-        $("pinError")
-          .textContent =
-          "Could not save successful video or create voucher. Please try again.";
+      displayVoucher({
 
-      }
+        voucherCode:
+          voucherCode,
 
-      finally {
+        status:
+          "available",
 
-        $("verifyPin")
-          .disabled =
-          false;
+        expiresAt:
+          Timestamp.fromDate(
+            expiryDate
+          )
+
+      });
 
 
-        $("verifyPin")
-          .textContent =
-          "CONFIRM";
+      rememberVoucher(
+        voucherCode
+      );
 
-      }
+
+      showScreen(
+        "screen-voucher"
+      );
 
     }
-  );
+
+    catch (error) {
+
+      console.error(error);
 
 
+      $("pinError").textContent =
+        "Could not save the video or create the voucher. Please try again.";
 
-$("findVoucher")
-  .addEventListener(
-    "click",
-    async () => {
+    }
 
-      const name =
-        $("voucherLookupName")
-          .value
-          .trim();
+    finally {
+
+      $("verifyPin").disabled =
+        false;
 
 
-      const receipt =
-        $("voucherLookupReceipt")
-          .value
-          .trim();
+      $("verifyPin").textContent =
+        "CONFIRM";
+
+    }
+
+  }
+);
+
+
+/* =========================
+   MY VOUCHER LOOKUP
+========================= */
+
+$("findVoucher").addEventListener(
+  "click",
+  async () => {
+
+    const name =
+      $("voucherLookupName")
+        .value
+        .trim();
+
+
+    const receipt =
+      $("voucherLookupReceipt")
+        .value
+        .trim();
+
+
+    if (
+      !name ||
+      !receipt
+    ) {
+
+      $("voucherLookupError").textContent =
+        "Please enter your name and receipt number.";
+
+      return;
+
+    }
+
+
+    $("findVoucher").disabled =
+      true;
+
+
+    $("findVoucher").textContent =
+      "SEARCHING...";
+
+
+    $("voucherLookupError").textContent =
+      "";
+
+
+    try {
+
+      const normalizedReceipt =
+        normalizeReceipt(
+          receipt
+        );
+
+
+      const receiptRef =
+        doc(
+          db,
+          "receipts",
+          normalizedReceipt
+        );
+
+
+      const receiptSnap =
+        await getDoc(
+          receiptRef
+        );
 
 
       if (
-        !name ||
-        !receipt
+        !receiptSnap.exists()
       ) {
 
-        $("voucherLookupError")
-          .textContent =
-          "Please enter your name and receipt number.";
+        $("voucherLookupError").textContent =
+          "Walang voucher na nakita bes. Check your receipt number.";
 
         return;
 
       }
 
 
-      $("findVoucher")
-        .disabled =
-        true;
+      const receiptData =
+        receiptSnap.data();
 
-
-      $("findVoucher")
-        .textContent =
-        "SEARCHING...";
-
-
-      $("voucherLookupError")
-        .textContent =
-        "";
-
-
-      try {
-
-        const normalized =
-          normalizeReceipt(
-            receipt
-          );
-
-
-        const receiptRef =
-          doc(
-            db,
-            "receipts",
-            normalized
-          );
-
-
-        const receiptSnap =
-          await getDoc(
-            receiptRef
-          );
-
-
-        if (
-          !receiptSnap.exists()
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "Walang voucher na nakita bes. Check your receipt number.";
-
-          return;
-
-        }
-
-
-        const receiptData =
-          receiptSnap.data();
-
-
-        if (
-          !receiptData.voucherCode
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "This receipt has no winning voucher.";
-
-          return;
-
-        }
-
-
-        const voucherRef =
-          doc(
-            db,
-            "vouchers",
-            receiptData.voucherCode
-          );
-
-
-        const voucherSnap =
-          await getDoc(
-            voucherRef
-          );
-
-
-        if (
-          !voucherSnap.exists()
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "Voucher record not found.";
-
-          return;
-
-        }
-
-
-        const voucher =
-          voucherSnap.data();
-
-
-        if (
-          String(
-            voucher.name ||
-            ""
-          )
-            .trim()
-            .toLowerCase()
-          !==
-          name
-            .trim()
-            .toLowerCase()
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "Name does not match this receipt.";
-
-          return;
-
-        }
-
-
-        activeAttempt = {
-
-          id:
-            voucher.attemptId,
-
-          name:
-            voucher.name,
-
-          receipt:
-            voucher.receiptNumber,
-
-          normalizedReceipt:
-            voucher.normalizedReceipt,
-
-          voucherCode:
-            voucher.voucherCode,
-
-          voucherStatus:
-            voucher.status,
-
-          expiresAt:
-            voucher.expiresAt
-
-        };
-
-
-        await refreshExpiredStatus(
-          voucherRef,
-          voucher
-        );
-
-
-        const refreshed =
-          await getDoc(
-            voucherRef
-          );
-
-
-        const latestVoucher =
-          refreshed.data();
-
-
-        activeAttempt.voucherStatus =
-          latestVoucher.status;
-
-
-        displayVoucher(
-          latestVoucher
-        );
-
-
-        rememberVoucher(
-          latestVoucher.voucherCode
-        );
-
-
-        showScreen(
-          "screen-voucher"
-        );
-
-      }
-
-      catch (error) {
-
-        console.error(
-          error
-        );
-
-
-        $("voucherLookupError")
-          .textContent =
-          "Could not retrieve your voucher. Please try again.";
-
-      }
-
-      finally {
-
-        $("findVoucher")
-          .disabled =
-          false;
-
-
-        $("findVoucher")
-          .textContent =
-          "FIND MY VOUCHER";
-
-      }
-
-    }
-  );
-
-
-
-$("redeemVoucher")
-  .addEventListener(
-    "click",
-    async () => {
 
       if (
-        !activeAttempt ||
-        activeAttempt.voucherStatus ===
-          "redeemed" ||
-        activeAttempt.voucherStatus ===
-          "expired"
+        !receiptData.voucherCode
       ) {
+
+        $("voucherLookupError").textContent =
+          "This receipt has no winning voucher.";
 
         return;
 
@@ -1448,111 +1281,299 @@ $("redeemVoucher")
         doc(
           db,
           "vouchers",
-          activeAttempt.voucherCode
+          receiptData.voucherCode
         );
 
 
-      try {
-
-        const voucherSnap =
-          await getDoc(
-            voucherRef
-          );
-
-
-        if (
-          !voucherSnap.exists()
-        ) {
-
-          alert(
-            "Voucher not found."
-          );
-
-          return;
-
-        }
-
-
-        const voucher =
-          voucherSnap.data();
-
-
-        await refreshExpiredStatus(
-          voucherRef,
-          voucher
+      const voucherSnap =
+        await getDoc(
+          voucherRef
         );
 
 
-        const freshSnap =
-          await getDoc(
-            voucherRef
-          );
+      if (
+        !voucherSnap.exists()
+      ) {
+
+        $("voucherLookupError").textContent =
+          "Voucher record not found.";
+
+        return;
+
+      }
 
 
-        const fresh =
-          freshSnap.data();
+      const voucher =
+        voucherSnap.data();
 
 
-        if (
-          fresh.status ===
-          "expired"
-        ) {
+      if (
+        String(
+          voucher.name || ""
+        )
+          .trim()
+          .toLowerCase()
+        !==
+        name
+          .trim()
+          .toLowerCase()
+      ) {
 
-          activeAttempt.voucherStatus =
-            "expired";
+        $("voucherLookupError").textContent =
+          "Name does not match this receipt.";
+
+        return;
+
+      }
 
 
-          displayVoucher(
-            fresh
-          );
+      activeAttempt = {
+
+        id:
+          voucher.attemptId,
+
+        name:
+          voucher.name,
+
+        receipt:
+          voucher.receiptNumber,
+
+        normalizedReceipt:
+          voucher.normalizedReceipt,
+
+        voucherCode:
+          voucher.voucherCode,
+
+        voucherStatus:
+          voucher.status,
+
+        expiresAt:
+          voucher.expiresAt
+
+      };
 
 
-          alert(
-            "Expired na bes. This voucher can no longer be redeemed."
-          );
+      await refreshExpiredStatus(
+        voucherRef,
+        voucher
+      );
 
-          return;
 
+      const refreshed =
+        await getDoc(
+          voucherRef
+        );
+
+
+      const latestVoucher =
+        refreshed.data();
+
+
+      activeAttempt.voucherStatus =
+        latestVoucher.status;
+
+
+      displayVoucher(
+        latestVoucher
+      );
+
+
+      rememberVoucher(
+        latestVoucher.voucherCode
+      );
+
+
+      showScreen(
+        "screen-voucher"
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+
+      $("voucherLookupError").textContent =
+        "Could not retrieve your voucher. Please try again.";
+
+    }
+
+    finally {
+
+      $("findVoucher").disabled =
+        false;
+
+
+      $("findVoucher").textContent =
+        "FIND MY VOUCHER";
+
+    }
+
+  }
+);
+
+
+/* =========================
+   REDEEM VOUCHER
+========================= */
+
+$("redeemVoucher").addEventListener(
+  "click",
+  async () => {
+
+    if (
+      !activeAttempt ||
+      activeAttempt.voucherStatus ===
+        "redeemed" ||
+      activeAttempt.voucherStatus ===
+        "expired"
+    ) {
+
+      return;
+
+    }
+
+
+    const voucherRef =
+      doc(
+        db,
+        "vouchers",
+        activeAttempt.voucherCode
+      );
+
+
+    try {
+
+      const voucherSnap =
+        await getDoc(
+          voucherRef
+        );
+
+
+      if (
+        !voucherSnap.exists()
+      ) {
+
+        alert(
+          "Voucher not found."
+        );
+
+        return;
+
+      }
+
+
+      const voucher =
+        voucherSnap.data();
+
+
+      await refreshExpiredStatus(
+        voucherRef,
+        voucher
+      );
+
+
+      const freshSnap =
+        await getDoc(
+          voucherRef
+        );
+
+
+      const fresh =
+        freshSnap.data();
+
+
+      if (
+        fresh.status ===
+        "expired"
+      ) {
+
+        activeAttempt.voucherStatus =
+          "expired";
+
+
+        displayVoucher(
+          fresh
+        );
+
+
+        alert(
+          "Expired na bes. This voucher can no longer be redeemed."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        fresh.status ===
+        "redeemed"
+      ) {
+
+        activeAttempt.voucherStatus =
+          "redeemed";
+
+
+        displayVoucher(
+          fresh
+        );
+
+
+        return;
+
+      }
+
+
+      const confirmation =
+        confirm(
+          "Cashier: redeem this ₱10 voucher now? This cannot be undone."
+        );
+
+
+      if (!confirmation) {
+        return;
+      }
+
+
+      await setDoc(
+
+        voucherRef,
+
+        {
+
+          status:
+            "redeemed",
+
+          redeemedAt:
+            serverTimestamp()
+
+        },
+
+        {
+          merge:
+            true
         }
 
-
-        if (
-          fresh.status ===
-          "redeemed"
-        ) {
-
-          activeAttempt.voucherStatus =
-            "redeemed";
+      );
 
 
-          displayVoucher(
-            fresh
-          );
-
-
-          return;
-
-        }
-
-
-        const ok =
-          confirm(
-            "Cashier: redeem this ₱10 voucher now? This cannot be undone."
-          );
-
-
-        if (!ok) {
-          return;
-        }
-
+      if (
+        activeAttempt.id
+      ) {
 
         await setDoc(
 
-          voucherRef,
+          doc(
+            db,
+            "attempts",
+            activeAttempt.id
+          ),
 
           {
 
-            status:
+            voucherStatus:
               "redeemed",
 
             redeemedAt:
@@ -1567,87 +1588,42 @@ $("redeemVoucher")
 
         );
 
-
-        if (
-          activeAttempt.id
-        ) {
-
-          await setDoc(
-
-            doc(
-              db,
-              "attempts",
-              activeAttempt.id
-            ),
-
-            {
-
-              voucherStatus:
-                "redeemed",
-
-              redeemedAt:
-                serverTimestamp()
-
-            },
-
-            {
-              merge:
-                true
-            }
-
-          );
-
-        }
-
-
-        activeAttempt.voucherStatus =
-          "redeemed";
-
-
-        displayVoucher({
-
-          ...fresh,
-
-          status:
-            "redeemed"
-
-        });
-
       }
 
-      catch (error) {
 
-        console.error(
-          error
-        );
+      activeAttempt.voucherStatus =
+        "redeemed";
 
 
-        alert(
-          "Could not redeem voucher. Please try again."
-        );
+      displayVoucher({
 
-      }
+        ...fresh,
+
+        status:
+          "redeemed"
+
+      });
 
     }
-  );
+
+    catch (error) {
+
+      console.error(error);
 
 
+      alert(
+        "Could not redeem voucher. Please try again."
+      );
 
-$("newGame")
-  .addEventListener(
-    "click",
-    resetGame
-  );
+    }
 
-
-
-$("closeMissed")
-  .addEventListener(
-    "click",
-    resetGame
-  );
+  }
+);
 
 
+/* =========================
+   DRIVE UPLOAD
+========================= */
 
 async function uploadToDrive({
   type,
@@ -1679,64 +1655,55 @@ async function uploadToDrive({
   };
 
 
-  const response =
-    await fetch(
-      MEDIA_BRIDGE_URL,
-      {
+  /*
+   IMPORTANT:
 
-        method:
-          "POST",
+   Apps Script redirects ContentService
+   responses to googleusercontent.com.
 
-        headers: {
+   mode:"no-cors" prevents the browser
+   from treating that redirect as an error.
 
-          "Content-Type":
-            "text/plain;charset=utf-8"
+   We intentionally do NOT read the
+   response body.
+  */
 
-        },
+  await fetch(
+    MEDIA_BRIDGE_URL,
+    {
 
-        body:
-          JSON.stringify(
-            payload
-          )
+      method:
+        "POST",
 
-      }
-    );
+      mode:
+        "no-cors",
 
+      headers: {
 
-  const text =
-    await response.text();
+        "Content-Type":
+          "text/plain;charset=utf-8"
 
+      },
 
-  let result;
+      body:
+        JSON.stringify(
+          payload
+        )
 
-
-  try {
-
-    result =
-      JSON.parse(
-        text
-      );
-
-  }
-
-  catch {
-
-    throw new Error(
-      "Invalid response from media bridge."
-    );
-
-  }
+    }
+  );
 
 
-  return result;
+  return true;
 
 }
 
 
+/* =========================
+   FILE → BASE64
+========================= */
 
-function blobToBase64(
-  blob
-) {
+function blobToBase64(blob) {
 
   return new Promise(
     (
@@ -1786,39 +1753,59 @@ function blobToBase64(
 }
 
 
+/* =========================
+   RECEIPT FILENAME
+========================= */
 
 function buildReceiptFileName(
-  attempt
+  attempt,
+  file
 ) {
 
   const extension =
     getFileExtension(
-      receiptFile?.name
+      file?.name
     ) ||
+
     mimeExtension(
-      receiptFile?.type
+      file?.type
     ) ||
+
     "jpg";
 
 
   return (
+
     "RECEIPT_" +
+
     safeFilePart(
       attempt.receipt
     ) +
+
     "_" +
+
     safeFilePart(
       attempt.name
     ) +
+
     "_" +
-    Date.now() +
+
+    safeFilePart(
+      attempt.id
+    ) +
+
     "." +
+
     extension
+
   );
 
 }
 
 
+/* =========================
+   VIDEO FILENAME
+========================= */
 
 function buildVideoFileName(
   attempt,
@@ -1833,154 +1820,44 @@ function buildVideoFileName(
 
 
   return (
+
     "SUCCESS_" +
+
     safeFilePart(
       attempt.receipt
     ) +
+
     "_" +
+
     safeFilePart(
       attempt.name
     ) +
+
     "_" +
-    Date.now() +
+
+    safeFilePart(
+      attempt.id
+    ) +
+
     "." +
+
     extension
+
   );
 
 }
 
 
-
-function safeFilePart(
-  value
-) {
-
-  return String(
-    value ||
-    "unknown"
-  )
-
-    .trim()
-
-    .replace(
-      /[^a-zA-Z0-9_-]/g,
-      "_"
-    )
-
-    .slice(
-      0,
-      50
-    );
-
-}
-
-
-
-function getFileExtension(
-  name
-) {
-
-  if (
-    !name ||
-    !name.includes(".")
-  ) {
-
-    return "";
-
-  }
-
-
-  return name
-    .split(".")
-    .pop()
-    .toLowerCase();
-
-}
-
-
-
-function mimeExtension(
-  mimeType
-) {
-
-  const mime =
-    String(
-      mimeType ||
-      ""
-    ).toLowerCase();
-
-
-  if (
-    mime.includes(
-      "mp4"
-    )
-  ) {
-
-    return "mp4";
-
-  }
-
-
-  if (
-    mime.includes(
-      "webm"
-    )
-  ) {
-
-    return "webm";
-
-  }
-
-
-  if (
-    mime.includes(
-      "jpeg"
-    )
-  ) {
-
-    return "jpg";
-
-  }
-
-
-  if (
-    mime.includes(
-      "png"
-    )
-  ) {
-
-    return "png";
-
-  }
-
-
-  if (
-    mime.includes(
-      "heic"
-    )
-  ) {
-
-    return "heic";
-
-  }
-
-
-  return "";
-
-}
-
-
+/* =========================
+   UPDATE ATTEMPT
+========================= */
 
 async function updateAttemptResult(
   result
 ) {
 
-  if (
-    !activeAttempt
-  ) {
-
+  if (!activeAttempt) {
     return;
-
   }
 
 
@@ -2017,7 +1894,8 @@ async function updateAttemptResult(
       doc(
         db,
         "receipts",
-        activeAttempt.normalizedReceipt
+        activeAttempt
+          .normalizedReceipt
       ),
 
       {
@@ -2054,6 +1932,9 @@ async function updateAttemptResult(
 }
 
 
+/* =========================
+   EXPIRY CHECK
+========================= */
 
 async function refreshExpiredStatus(
   voucherRef,
@@ -2108,13 +1989,15 @@ async function refreshExpiredStatus(
 }
 
 
+/* =========================
+   DISPLAY VOUCHER
+========================= */
 
 function displayVoucher(
   voucher
 ) {
 
-  $("voucherCode")
-    .textContent =
+  $("voucherCode").textContent =
     voucher.voucherCode ||
     "—";
 
@@ -2125,20 +2008,16 @@ function displayVoucher(
     );
 
 
-  if (
-    expiry
-  ) {
+  if (expiry) {
 
-    $("voucherExpiry")
-      .textContent =
+    $("voucherExpiry").textContent =
       `Valid until ${formatDate(expiry)}`;
 
   }
 
   else {
 
-    $("voucherExpiry")
-      .textContent =
+    $("voucherExpiry").textContent =
       "Valid for 7 days only.";
 
   }
@@ -2149,23 +2028,19 @@ function displayVoucher(
     "redeemed"
   ) {
 
-    $("voucherStatus")
-      .textContent =
+    $("voucherStatus").textContent =
       "REDEEMED";
 
 
-    $("voucherStatus")
-      .className =
+    $("voucherStatus").className =
       "status redeemed";
 
 
-    $("redeemVoucher")
-      .disabled =
+    $("redeemVoucher").disabled =
       true;
 
 
-    $("redeemVoucher")
-      .textContent =
+    $("redeemVoucher").textContent =
       "USED NA BES ✓";
 
 
@@ -2179,23 +2054,19 @@ function displayVoucher(
     "expired"
   ) {
 
-    $("voucherStatus")
-      .textContent =
+    $("voucherStatus").textContent =
       "EXPIRED";
 
 
-    $("voucherStatus")
-      .className =
+    $("voucherStatus").className =
       "status redeemed";
 
 
-    $("redeemVoucher")
-      .disabled =
+    $("redeemVoucher").disabled =
       true;
 
 
-    $("redeemVoucher")
-      .textContent =
+    $("redeemVoucher").textContent =
       "EXPIRED NA BES 😭";
 
 
@@ -2204,28 +2075,27 @@ function displayVoucher(
   }
 
 
-  $("voucherStatus")
-    .textContent =
+  $("voucherStatus").textContent =
     "AVAILABLE";
 
 
-  $("voucherStatus")
-    .className =
+  $("voucherStatus").className =
     "status available";
 
 
-  $("redeemVoucher")
-    .disabled =
+  $("redeemVoucher").disabled =
     false;
 
 
-  $("redeemVoucher")
-    .textContent =
+  $("redeemVoucher").textContent =
     "REDEEM ₱10";
 
 }
 
 
+/* =========================
+   HELPERS
+========================= */
 
 function timestampToDate(
   value
@@ -2251,8 +2121,7 @@ function timestampToDate(
   ) {
 
     return new Date(
-      value.seconds *
-      1000
+      value.seconds * 1000
     );
 
   }
@@ -2265,49 +2134,44 @@ function timestampToDate(
 }
 
 
-
 function formatDate(
   date
 ) {
 
-  return date
-    .toLocaleDateString(
-      "en-PH",
-      {
+  return date.toLocaleDateString(
+    "en-PH",
+    {
 
-        year:
-          "numeric",
+      year:
+        "numeric",
 
-        month:
-          "short",
+      month:
+        "short",
 
-        day:
-          "numeric"
+      day:
+        "numeric"
 
-      }
-    );
+    }
+  );
 
 }
-
 
 
 function rememberVoucher(
   code
 ) {
 
-  if (
-    code
-  ) {
-
-    localStorage.setItem(
-      "kapirata_last_voucher",
-      code
-    );
-
+  if (!code) {
+    return;
   }
 
-}
 
+  localStorage.setItem(
+    "kapirata_last_voucher",
+    code
+  );
+
+}
 
 
 function normalizeReceipt(
@@ -2323,7 +2187,6 @@ function normalizeReceipt(
     );
 
 }
-
 
 
 function generateVoucherCode() {
@@ -2353,28 +2216,150 @@ function generateVoucherCode() {
 }
 
 
+function safeFilePart(
+  value
+) {
 
-function stopCamera() {
+  return String(
+    value || "unknown"
+  )
 
-  if (
-    stream
-  ) {
+    .trim()
 
-    stream
-      .getTracks()
-      .forEach(
-        (track) =>
-          track.stop()
-      );
+    .replace(
+      /[^a-zA-Z0-9_-]/g,
+      "_"
+    )
 
-
-    stream =
-      null;
-
-  }
+    .slice(
+      0,
+      70
+    );
 
 }
 
+
+function getFileExtension(
+  name
+) {
+
+  if (
+    !name ||
+    !name.includes(".")
+  ) {
+
+    return "";
+
+  }
+
+
+  return name
+    .split(".")
+    .pop()
+    .toLowerCase();
+
+}
+
+
+function mimeExtension(
+  mime
+) {
+
+  const value =
+    String(
+      mime || ""
+    ).toLowerCase();
+
+
+  if (
+    value.includes("mp4")
+  ) {
+
+    return "mp4";
+
+  }
+
+
+  if (
+    value.includes("webm")
+  ) {
+
+    return "webm";
+
+  }
+
+
+  if (
+    value.includes("jpeg")
+  ) {
+
+    return "jpg";
+
+  }
+
+
+  if (
+    value.includes("png")
+  ) {
+
+    return "png";
+
+  }
+
+
+  if (
+    value.includes("heic")
+  ) {
+
+    return "heic";
+
+  }
+
+
+  return "";
+
+}
+
+
+/* =========================
+   CAMERA CLEANUP
+========================= */
+
+function stopCamera() {
+
+  if (!stream) {
+    return;
+  }
+
+
+  stream
+    .getTracks()
+    .forEach(
+      (track) =>
+        track.stop()
+    );
+
+
+  stream =
+    null;
+
+}
+
+
+/* =========================
+   RESET
+========================= */
+
+$("newGame").addEventListener(
+  "click",
+  resetGame
+);
+
+
+$("closeMissed").addEventListener(
+  "click",
+  resetGame
+);
 
 
 function resetGame() {
@@ -2413,23 +2398,19 @@ function resetGame() {
   }
 
 
-  $("playerName")
-    .value =
+  $("playerName").value =
     "";
 
 
-  $("receiptNumber")
-    .value =
+  $("receiptNumber").value =
     "";
 
 
-  $("receiptPhoto")
-    .value =
+  $("receiptPhoto").value =
     "";
 
 
-  $("receiptPreview")
-    .src =
+  $("receiptPreview").src =
     "";
 
 
@@ -2438,28 +2419,27 @@ function resetGame() {
     .add("hidden");
 
 
-  $("consent")
-    .checked =
+  $("consent").checked =
     false;
 
 
-  $("cashierPin")
-    .value =
+  $("cashierPin").value =
     "";
 
 
-  $("voucherLookupName")
-    .value =
+  $("voucherLookupName").value =
     "";
 
 
-  $("voucherLookupReceipt")
-    .value =
+  $("voucherLookupReceipt").value =
     "";
 
 
-  $("voucherLookupError")
-    .textContent =
+  $("voucherLookupError").textContent =
+    "";
+
+
+  $("formError").textContent =
     "";
 
 
@@ -2488,24 +2468,16 @@ function resetGame() {
     .add("hidden");
 
 
-  $("timer")
-    .textContent =
+  $("timer").textContent =
     "00:10";
 
 
-  $("redeemVoucher")
-    .disabled =
+  $("redeemVoucher").disabled =
     false;
 
 
-  $("redeemVoucher")
-    .textContent =
+  $("redeemVoucher").textContent =
     "REDEEM ₱10";
-
-
-  $("formError")
-    .textContent =
-    "";
 
 
   showScreen(
