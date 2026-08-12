@@ -34,7 +34,7 @@ const db =
 ===================================================== */
 
 const MEDIA_BRIDGE_URL =
-  "https://script.google.com/macros/s/AKfycbzeNPftGOJi_ykQmBtSZWH1ikDpycgjsXo168QmkRclgEZbmqkFMZ4-oNQwX2qPzsls/exec";
+  "https://script.google.com/macros/s/AKfycbyxbrnQz6GQhfQYu59gtmf0HdOBKqkJXn-dDodVxzCyEayncs7YhfdraxrHmw1PElZm/exec";
 
 
 /* =====================================================
