@@ -14,15 +14,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-const firebaseApp =
-  initializeApp(firebaseConfig);
-
-const db =
-  getFirestore(firebaseApp);
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
 
-const $ = (id) =>
-  document.getElementById(id);
+// GOOGLE APPS SCRIPT BRIDGE
+const MEDIA_BRIDGE_URL =
+  "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
+
+
+const $ = (id) => document.getElementById(id);
 
 const screens =
   [...document.querySelectorAll(".screen")];
@@ -36,7 +37,9 @@ let chunks = [];
 
 let videoBlob = null;
 
-let receiptDataUrl = null;
+let receiptFile = null;
+
+let receiptPreviewUrl = null;
 
 let activeAttempt = null;
 
@@ -108,26 +111,33 @@ $("receiptPhoto")
       }
 
 
-      const reader =
-        new FileReader();
+      receiptFile = file;
 
 
-      reader.onload = () => {
+      if (
+        receiptPreviewUrl
+      ) {
 
-        receiptDataUrl =
-          reader.result;
+        URL.revokeObjectURL(
+          receiptPreviewUrl
+        );
 
-        $("receiptPreview").src =
-          receiptDataUrl;
-
-        $("receiptPreview")
-          .classList
-          .remove("hidden");
-
-      };
+      }
 
 
-      reader.readAsDataURL(file);
+      receiptPreviewUrl =
+        URL.createObjectURL(
+          file
+        );
+
+
+      $("receiptPreview").src =
+        receiptPreviewUrl;
+
+
+      $("receiptPreview")
+        .classList
+        .remove("hidden");
 
     }
   );
@@ -152,8 +162,7 @@ $("continueToCamera")
 
 
       const hasPhoto =
-        $("receiptPhoto")
-          .files?.length > 0;
+        !!receiptFile;
 
 
       const consent =
@@ -177,7 +186,8 @@ $("continueToCamera")
 
 
       $("continueToCamera")
-        .disabled = true;
+        .disabled =
+        true;
 
 
       $("continueToCamera")
@@ -301,7 +311,111 @@ $("continueToCamera")
         );
 
 
-        $("formError").textContent =
+        $("formError")
+          .textContent =
+          "Uploading receipt...";
+
+
+        const receiptUpload =
+          await uploadToDrive({
+
+            type:
+              "receipt",
+
+            file:
+              receiptFile,
+
+            fileName:
+              buildReceiptFileName(
+                activeAttempt
+              )
+
+          });
+
+
+        if (
+          !receiptUpload.ok
+        ) {
+
+          throw new Error(
+            receiptUpload.error ||
+            "Receipt upload failed."
+          );
+
+        }
+
+
+        activeAttempt.receiptFileId =
+          receiptUpload.fileId;
+
+
+        activeAttempt.receiptViewUrl =
+          receiptUpload.viewUrl;
+
+
+        activeAttempt.receiptDirectUrl =
+          receiptUpload.directUrl;
+
+
+        await setDoc(
+
+          doc(
+            db,
+            "attempts",
+            activeAttempt.id
+          ),
+
+          {
+
+            receiptFileId:
+              receiptUpload.fileId,
+
+            receiptViewUrl:
+              receiptUpload.viewUrl,
+
+            receiptDirectUrl:
+              receiptUpload.directUrl,
+
+            receiptUploadedAt:
+              serverTimestamp()
+
+          },
+
+          {
+            merge:
+              true
+          }
+
+        );
+
+
+        await setDoc(
+
+          receiptRef,
+
+          {
+
+            receiptFileId:
+              receiptUpload.fileId,
+
+            receiptViewUrl:
+              receiptUpload.viewUrl,
+
+            updatedAt:
+              serverTimestamp()
+
+          },
+
+          {
+            merge:
+              true
+          }
+
+        );
+
+
+        $("formError")
+          .textContent =
           "";
 
 
@@ -318,15 +432,17 @@ $("continueToCamera")
         );
 
 
-        $("formError").textContent =
-          "Could not connect to the database. Please try again.";
+        $("formError")
+          .textContent =
+          "Could not save the receipt or connect to the database. Please try again.";
 
       }
 
       finally {
 
         $("continueToCamera")
-          .disabled = false;
+          .disabled =
+          false;
 
 
         $("continueToCamera")
@@ -418,7 +534,8 @@ $("startRecording")
 
       chunks = [];
 
-      videoBlob = null;
+      videoBlob =
+        null;
 
 
       const preferred =
@@ -470,8 +587,7 @@ $("startRecording")
       }
 
 
-      recorder
-        .ondataavailable =
+      recorder.ondataavailable =
         (event) => {
 
           if (
@@ -487,8 +603,7 @@ $("startRecording")
         };
 
 
-      recorder
-        .onstop =
+      recorder.onstop =
         () => {
 
           videoBlob =
@@ -508,13 +623,11 @@ $("startRecording")
             );
 
 
-          $("playback")
-            .src =
+          $("playback").src =
             url;
 
 
-          $("cashierPlayback")
-            .src =
+          $("cashierPlayback").src =
             url;
 
 
@@ -792,10 +905,63 @@ $("verifyPin")
 
       $("verifyPin")
         .textContent =
-        "CREATING VOUCHER...";
+        "SAVING VIDEO...";
 
 
       try {
+
+        if (
+          !videoBlob
+        ) {
+
+          throw new Error(
+            "Successful video is missing."
+          );
+
+        }
+
+
+        const videoUpload =
+          await uploadToDrive({
+
+            type:
+              "video",
+
+            file:
+              videoBlob,
+
+            fileName:
+              buildVideoFileName(
+                activeAttempt,
+                videoBlob
+              )
+
+          });
+
+
+        if (
+          !videoUpload.ok
+        ) {
+
+          throw new Error(
+            videoUpload.error ||
+            "Video upload failed."
+          );
+
+        }
+
+
+        activeAttempt.videoFileId =
+          videoUpload.fileId;
+
+
+        activeAttempt.videoViewUrl =
+          videoUpload.viewUrl;
+
+
+        activeAttempt.videoDirectUrl =
+          videoUpload.directUrl;
+
 
         const code =
           generateVoucherCode();
@@ -845,6 +1011,18 @@ $("verifyPin")
 
             result:
               "approved",
+
+            videoFileId:
+              videoUpload.fileId,
+
+            videoViewUrl:
+              videoUpload.viewUrl,
+
+            videoDirectUrl:
+              videoUpload.directUrl,
+
+            videoUploadedAt:
+              serverTimestamp(),
 
             voucherCode:
               code,
@@ -919,8 +1097,7 @@ $("verifyPin")
           doc(
             db,
             "receipts",
-            activeAttempt
-              .normalizedReceipt
+            activeAttempt.normalizedReceipt
           ),
 
           {
@@ -947,21 +1124,20 @@ $("verifyPin")
         );
 
 
-        displayVoucher(
-          {
-            voucherCode:
-              code,
+        displayVoucher({
 
-            status:
-              "available",
+          voucherCode:
+            code,
 
-            expiresAt:
-              Timestamp.fromDate(
-                expiryDate
-              )
+          status:
+            "available",
 
-          }
-        );
+          expiresAt:
+            Timestamp.fromDate(
+              expiryDate
+            )
+
+        });
 
 
         rememberVoucher(
@@ -984,7 +1160,7 @@ $("verifyPin")
 
         $("pinError")
           .textContent =
-          "Could not create voucher. Please try again.";
+          "Could not save successful video or create voucher. Please try again.";
 
       }
 
@@ -1108,8 +1284,7 @@ $("findVoucher")
           doc(
             db,
             "vouchers",
-            receiptData
-              .voucherCode
+            receiptData.voucherCode
           );
 
 
@@ -1170,12 +1345,10 @@ $("findVoucher")
             voucher.receiptNumber,
 
           normalizedReceipt:
-            voucher
-              .normalizedReceipt,
+            voucher.normalizedReceipt,
 
           voucherCode:
-            voucher
-              .voucherCode,
+            voucher.voucherCode,
 
           voucherStatus:
             voucher.status,
@@ -1212,8 +1385,7 @@ $("findVoucher")
 
 
         rememberVoucher(
-          latestVoucher
-            .voucherCode
+          latestVoucher.voucherCode
         );
 
 
@@ -1261,11 +1433,9 @@ $("redeemVoucher")
 
       if (
         !activeAttempt ||
-        activeAttempt
-          .voucherStatus ===
+        activeAttempt.voucherStatus ===
           "redeemed" ||
-        activeAttempt
-          .voucherStatus ===
+        activeAttempt.voucherStatus ===
           "expired"
       ) {
 
@@ -1278,8 +1448,7 @@ $("redeemVoucher")
         doc(
           db,
           "vouchers",
-          activeAttempt
-            .voucherCode
+          activeAttempt.voucherCode
         );
 
 
@@ -1329,8 +1498,7 @@ $("redeemVoucher")
           "expired"
         ) {
 
-          activeAttempt
-            .voucherStatus =
+          activeAttempt.voucherStatus =
             "expired";
 
 
@@ -1353,8 +1521,7 @@ $("redeemVoucher")
           "redeemed"
         ) {
 
-          activeAttempt
-            .voucherStatus =
+          activeAttempt.voucherStatus =
             "redeemed";
 
 
@@ -1433,19 +1600,18 @@ $("redeemVoucher")
         }
 
 
-        activeAttempt
-          .voucherStatus =
+        activeAttempt.voucherStatus =
           "redeemed";
 
 
-        displayVoucher(
-          {
-            ...fresh,
+        displayVoucher({
 
-            status:
-              "redeemed"
-          }
-        );
+          ...fresh,
+
+          status:
+            "redeemed"
+
+        });
 
       }
 
@@ -1483,8 +1649,329 @@ $("closeMissed")
 
 
 
-async function
-updateAttemptResult(
+async function uploadToDrive({
+  type,
+  file,
+  fileName
+}) {
+
+  const base64 =
+    await blobToBase64(
+      file
+    );
+
+
+  const payload = {
+
+    type:
+      type,
+
+    fileName:
+      fileName,
+
+    mimeType:
+      file.type ||
+      "application/octet-stream",
+
+    base64:
+      base64
+
+  };
+
+
+  const response =
+    await fetch(
+      MEDIA_BRIDGE_URL,
+      {
+
+        method:
+          "POST",
+
+        headers: {
+
+          "Content-Type":
+            "text/plain;charset=utf-8"
+
+        },
+
+        body:
+          JSON.stringify(
+            payload
+          )
+
+      }
+    );
+
+
+  const text =
+    await response.text();
+
+
+  let result;
+
+
+  try {
+
+    result =
+      JSON.parse(
+        text
+      );
+
+  }
+
+  catch {
+
+    throw new Error(
+      "Invalid response from media bridge."
+    );
+
+  }
+
+
+  return result;
+
+}
+
+
+
+function blobToBase64(
+  blob
+) {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const reader =
+        new FileReader();
+
+
+      reader.onloadend =
+        () => {
+
+          const result =
+            String(
+              reader.result
+            );
+
+
+          const base64 =
+            result.includes(",")
+
+              ? result.split(",")[1]
+
+              : result;
+
+
+          resolve(
+            base64
+          );
+
+        };
+
+
+      reader.onerror =
+        reject;
+
+
+      reader.readAsDataURL(
+        blob
+      );
+
+    }
+  );
+
+}
+
+
+
+function buildReceiptFileName(
+  attempt
+) {
+
+  const extension =
+    getFileExtension(
+      receiptFile?.name
+    ) ||
+    mimeExtension(
+      receiptFile?.type
+    ) ||
+    "jpg";
+
+
+  return (
+    "RECEIPT_" +
+    safeFilePart(
+      attempt.receipt
+    ) +
+    "_" +
+    safeFilePart(
+      attempt.name
+    ) +
+    "_" +
+    Date.now() +
+    "." +
+    extension
+  );
+
+}
+
+
+
+function buildVideoFileName(
+  attempt,
+  blob
+) {
+
+  const extension =
+    mimeExtension(
+      blob.type
+    ) ||
+    "webm";
+
+
+  return (
+    "SUCCESS_" +
+    safeFilePart(
+      attempt.receipt
+    ) +
+    "_" +
+    safeFilePart(
+      attempt.name
+    ) +
+    "_" +
+    Date.now() +
+    "." +
+    extension
+  );
+
+}
+
+
+
+function safeFilePart(
+  value
+) {
+
+  return String(
+    value ||
+    "unknown"
+  )
+
+    .trim()
+
+    .replace(
+      /[^a-zA-Z0-9_-]/g,
+      "_"
+    )
+
+    .slice(
+      0,
+      50
+    );
+
+}
+
+
+
+function getFileExtension(
+  name
+) {
+
+  if (
+    !name ||
+    !name.includes(".")
+  ) {
+
+    return "";
+
+  }
+
+
+  return name
+    .split(".")
+    .pop()
+    .toLowerCase();
+
+}
+
+
+
+function mimeExtension(
+  mimeType
+) {
+
+  const mime =
+    String(
+      mimeType ||
+      ""
+    ).toLowerCase();
+
+
+  if (
+    mime.includes(
+      "mp4"
+    )
+  ) {
+
+    return "mp4";
+
+  }
+
+
+  if (
+    mime.includes(
+      "webm"
+    )
+  ) {
+
+    return "webm";
+
+  }
+
+
+  if (
+    mime.includes(
+      "jpeg"
+    )
+  ) {
+
+    return "jpg";
+
+  }
+
+
+  if (
+    mime.includes(
+      "png"
+    )
+  ) {
+
+    return "png";
+
+  }
+
+
+  if (
+    mime.includes(
+      "heic"
+    )
+  ) {
+
+    return "heic";
+
+  }
+
+
+  return "";
+
+}
+
+
+
+async function updateAttemptResult(
   result
 ) {
 
@@ -1530,8 +2017,7 @@ updateAttemptResult(
       doc(
         db,
         "receipts",
-        activeAttempt
-          .normalizedReceipt
+        activeAttempt.normalizedReceipt
       ),
 
       {
@@ -1569,8 +2055,7 @@ updateAttemptResult(
 
 
 
-async function
-refreshExpiredStatus(
+async function refreshExpiredStatus(
   voucherRef,
   voucher
 ) {
@@ -1624,8 +2109,7 @@ refreshExpiredStatus(
 
 
 
-function
-displayVoucher(
+function displayVoucher(
   voucher
 ) {
 
@@ -1743,8 +2227,7 @@ displayVoucher(
 
 
 
-function
-timestampToDate(
+function timestampToDate(
   value
 ) {
 
@@ -1783,8 +2266,7 @@ timestampToDate(
 
 
 
-function
-formatDate(
+function formatDate(
   date
 ) {
 
@@ -1809,8 +2291,7 @@ formatDate(
 
 
 
-function
-rememberVoucher(
+function rememberVoucher(
   code
 ) {
 
@@ -1829,8 +2310,7 @@ rememberVoucher(
 
 
 
-function
-normalizeReceipt(
+function normalizeReceipt(
   value
 ) {
 
@@ -1846,8 +2326,7 @@ normalizeReceipt(
 
 
 
-function
-generateVoucherCode() {
+function generateVoucherCode() {
 
   const date =
     new Date();
@@ -1875,8 +2354,7 @@ generateVoucherCode() {
 
 
 
-function
-stopCamera() {
+function stopCamera() {
 
   if (
     stream
@@ -1899,8 +2377,7 @@ stopCamera() {
 
 
 
-function
-resetGame() {
+function resetGame() {
 
   stopCamera();
 
@@ -1913,12 +2390,27 @@ resetGame() {
     null;
 
 
-  receiptDataUrl =
+  receiptFile =
     null;
 
 
   chunks =
     [];
+
+
+  if (
+    receiptPreviewUrl
+  ) {
+
+    URL.revokeObjectURL(
+      receiptPreviewUrl
+    );
+
+
+    receiptPreviewUrl =
+      null;
+
+  }
 
 
   $("playerName")
@@ -2009,6 +2501,11 @@ resetGame() {
   $("redeemVoucher")
     .textContent =
     "REDEEM ₱10";
+
+
+  $("formError")
+    .textContent =
+    "";
 
 
   showScreen(
