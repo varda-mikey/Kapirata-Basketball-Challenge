@@ -2,11 +2,9 @@ import {
   firebaseConfig
 } from "./firebase-config.js";
 
-
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
 
 import {
   getFirestore,
@@ -18,41 +16,31 @@ import {
 
 
 const firebaseApp =
-  initializeApp(
-    firebaseConfig
-  );
-
+  initializeApp(firebaseConfig);
 
 const db =
-  getFirestore(
-    firebaseApp
-  );
+  getFirestore(firebaseApp);
 
 
 const MEDIA_BRIDGE_URL =
-  "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
+  "https://script.google.com/macros/s/AKfycbzeNPftGOJi_ykQmBtSZWH1ikDpycgjsXo168QmkRclgEZbmqkFMZ4-oNQwX2qPzsls/exec";
 
 
-const $ =
-  (id) =>
-    document.getElementById(
-      id
-    );
+const $ = (id) =>
+  document.getElementById(id);
 
 
-let attempts =
-  [];
+let attempts = [];
 
 
-/* =============================
-   LOAD FIRESTORE
-============================= */
+/* =========================
+   LOAD
+========================= */
 
 async function loadAttempts() {
 
   $("statusBox").textContent =
     "Loading Kapirata records...";
-
 
   $("refreshBtn").disabled =
     true;
@@ -60,37 +48,28 @@ async function loadAttempts() {
 
   try {
 
-    const attemptsQuery =
+    const q =
       query(
-
         collection(
           db,
           "attempts"
         ),
-
         orderBy(
           "createdAt",
           "desc"
         )
-
       );
 
 
     const snapshot =
-      await getDocs(
-        attemptsQuery
-      );
+      await getDocs(q);
 
 
     attempts =
       snapshot.docs.map(
-        (item) => ({
-
-          id:
-            item.id,
-
+        item => ({
+          id:item.id,
           ...item.data()
-
         })
       );
 
@@ -105,46 +84,33 @@ async function loadAttempts() {
 
   catch (error) {
 
-    console.error(
-      error
-    );
+    console.error(error);
 
 
     try {
 
-      const fallback =
+      const snapshot =
         await getDocs(
-
           collection(
             db,
             "attempts"
           )
-
         );
 
 
       attempts =
-        fallback.docs.map(
-          (item) => ({
-
-            id:
-              item.id,
-
+        snapshot.docs.map(
+          item => ({
+            id:item.id,
             ...item.data()
-
           })
         );
 
 
       attempts.sort(
-        (a, b) =>
-          getMillis(
-            b.createdAt
-          )
-          -
-          getMillis(
-            a.createdAt
-          )
+        (a,b) =>
+          getMillis(b.createdAt) -
+          getMillis(a.createdAt)
       );
 
 
@@ -158,10 +124,7 @@ async function loadAttempts() {
 
     catch (secondError) {
 
-      console.error(
-        secondError
-      );
-
+      console.error(secondError);
 
       $("statusBox").textContent =
         "Could not load Firebase records.";
@@ -180,9 +143,9 @@ async function loadAttempts() {
 }
 
 
-/* =============================
+/* =========================
    RENDER
-============================= */
+========================= */
 
 function render() {
 
@@ -202,65 +165,45 @@ function render() {
 
   const filtered =
     attempts.filter(
-      (attempt) => {
+      attempt => {
 
-        const haystack =
+        const text =
           [
-
             attempt.name,
-
             attempt.receiptNumber,
-
             attempt.voucherCode,
-
             attempt.result,
-
             attempt.voucherStatus
-
           ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-
-        const searchOkay =
-          !search ||
-          haystack.includes(
-            search
-          );
-
-
-        const filterOkay =
-          matchFilter(
-            attempt,
-            filter
-          );
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
 
         return (
-          searchOkay &&
-          filterOkay
+          (!search ||
+            text.includes(search))
+          &&
+          matchFilter(
+            attempt,
+            filter
+          )
         );
 
       }
     );
 
 
-  renderTable(
-    filtered
-  );
+  renderTable(filtered);
 
-
-  renderMobileCards(
-    filtered
-  );
+  renderMobileCards(filtered);
 
 }
 
 
-/* =============================
+/* =========================
    STATS
-============================= */
+========================= */
 
 function renderStats() {
 
@@ -270,46 +213,37 @@ function renderStats() {
 
   $("approvedCount").textContent =
     attempts.filter(
-      (attempt) =>
-        attempt.result ===
+      x =>
+        x.result ===
         "approved"
     ).length;
 
 
   $("availableCount").textContent =
     attempts.filter(
-      (attempt) =>
-        attempt.voucherStatus ===
+      x =>
+        x.voucherStatus ===
         "available"
     ).length;
 
 
   $("redeemedCount").textContent =
     attempts.filter(
-      (attempt) =>
-        attempt.voucherStatus ===
+      x =>
+        x.voucherStatus ===
         "redeemed"
     ).length;
 
 }
 
 
-/* =============================
-   FILTER
-============================= */
-
 function matchFilter(
   attempt,
   filter
 ) {
 
-  if (
-    filter ===
-    "all"
-  ) {
-
+  if (filter === "all") {
     return true;
-
   }
 
 
@@ -318,9 +252,7 @@ function matchFilter(
       "available",
       "redeemed",
       "expired"
-    ].includes(
-      filter
-    )
+    ].includes(filter)
   ) {
 
     return (
@@ -339,24 +271,19 @@ function matchFilter(
 }
 
 
-/* =============================
+/* =========================
    TABLE
-============================= */
+========================= */
 
-function renderTable(
-  records
-) {
+function renderTable(records) {
 
   const rows =
     $("attemptRows");
 
 
-  if (
-    !records.length
-  ) {
+  if (!records.length) {
 
-    rows.innerHTML =
-      `
+    rows.innerHTML = `
       <tr>
         <td
           colspan="6"
@@ -365,7 +292,7 @@ function renderTable(
           No matching attempts.
         </td>
       </tr>
-      `;
+    `;
 
     return;
 
@@ -374,17 +301,14 @@ function renderTable(
 
   rows.innerHTML =
     records.map(
-      (attempt) => {
-
-        return `
+      attempt => `
         <tr>
 
           <td>
 
             <strong>
               ${escapeHtml(
-                attempt.name ||
-                "—"
+                attempt.name || "—"
               )}
             </strong>
 
@@ -413,11 +337,9 @@ function renderTable(
 
 
           <td>
-
             ${resultBadge(
               attempt.result
             )}
-
           </td>
 
 
@@ -438,11 +360,9 @@ function renderTable(
 
 
           <td>
-
             ${mediaButtons(
               attempt
             )}
-
           </td>
 
 
@@ -463,17 +383,15 @@ function renderTable(
           </td>
 
         </tr>
-        `;
-
-      }
+      `
     ).join("");
 
 }
 
 
-/* =============================
+/* =========================
    MOBILE
-============================= */
+========================= */
 
 function renderMobileCards(
   records
@@ -483,16 +401,13 @@ function renderMobileCards(
     $("mobileCards");
 
 
-  if (
-    !records.length
-  ) {
+  if (!records.length) {
 
-    container.innerHTML =
-      `
+    container.innerHTML = `
       <div class="empty-card">
         No matching attempts.
       </div>
-      `;
+    `;
 
     return;
 
@@ -501,16 +416,16 @@ function renderMobileCards(
 
   container.innerHTML =
     records.map(
-      (attempt) => {
-
-        return `
+      attempt => `
         <article class="attempt-card">
 
           <div class="card-head">
 
             <div>
 
-              <strong class="student-name">
+              <strong
+                class="student-name"
+              >
                 ${escapeHtml(
                   attempt.name ||
                   "—"
@@ -574,61 +489,58 @@ function renderMobileCards(
 
 
           <div class="media-box">
-
             ${mediaButtons(
               attempt
             )}
-
           </div>
 
         </article>
-        `;
-
-      }
+      `
     ).join("");
 
 }
 
 
-/* =============================
-   MEDIA BUTTONS
-============================= */
+/* =========================
+   DIRECT MEDIA LINKS
+   NO FETCH = NO CORS ERROR
+========================= */
 
-function mediaButtons(
-  attempt
-) {
+function mediaButtons(attempt) {
 
-  let html =
-    "";
+  let html = "";
 
 
   if (
     attempt.receiptFileName
   ) {
 
+    const url =
+      buildViewerUrl(
+        "receipt",
+        attempt.receiptFileName
+      );
+
+
     html += `
-      <button
-        class="media-open-btn receipt-open-btn"
-        data-type="receipt"
-        data-name="${escapeAttribute(
-          attempt.receiptFileName
-        )}"
+      <a
+        href="${escapeAttribute(url)}"
+        target="_blank"
+        rel="noopener noreferrer"
         style="
           display:block;
-          width:100%;
-          border:0;
           text-align:center;
-          padding:10px;
+          padding:12px;
           margin:4px 0;
-          border-radius:10px;
+          border-radius:11px;
           background:#ffc928;
           color:#181818;
+          text-decoration:none;
           font-weight:900;
-          cursor:pointer;
         "
       >
         📷 VIEW RECEIPT
-      </button>
+      </a>
     `;
 
   }
@@ -648,29 +560,32 @@ function mediaButtons(
     attempt.successfulVideoFileName
   ) {
 
+    const url =
+      buildViewerUrl(
+        "video",
+        attempt.successfulVideoFileName
+      );
+
+
     html += `
-      <button
-        class="media-open-btn video-open-btn"
-        data-type="video"
-        data-name="${escapeAttribute(
-          attempt.successfulVideoFileName
-        )}"
+      <a
+        href="${escapeAttribute(url)}"
+        target="_blank"
+        rel="noopener noreferrer"
         style="
           display:block;
-          width:100%;
-          border:0;
           text-align:center;
-          padding:10px;
-          margin:4px 0;
-          border-radius:10px;
+          padding:12px;
+          margin:6px 0 4px;
+          border-radius:11px;
           background:#181818;
-          color:#ffffff;
+          color:white;
+          text-decoration:none;
           font-weight:900;
-          cursor:pointer;
         "
       >
         🎥 PLAY VIDEO
-      </button>
+      </a>
     `;
 
   }
@@ -696,105 +611,36 @@ function mediaButtons(
 }
 
 
-/* =============================
-   MEDIA LOOKUP
-============================= */
-
-async function openMedia(
+function buildViewerUrl(
   type,
   fileName
 ) {
 
-  const lookupUrl =
+  return (
 
     MEDIA_BRIDGE_URL +
 
-    "?action=lookup" +
+    "?action=viewer" +
 
     "&type=" +
-    encodeURIComponent(
-      type
-    ) +
+    encodeURIComponent(type) +
 
     "&name=" +
-    encodeURIComponent(
-      fileName
-    );
+    encodeURIComponent(fileName)
 
-
-  try {
-
-    const response =
-      await fetch(
-        lookupUrl
-      );
-
-
-    const text =
-      await response.text();
-
-
-    const data =
-      JSON.parse(
-        text
-      );
-
-
-    if (
-      !data.ok
-    ) {
-
-      alert(
-        data.error ||
-        "Media file not found."
-      );
-
-      return;
-
-    }
-
-
-    const targetUrl =
-      type === "video"
-        ? data.previewUrl
-        : data.viewUrl;
-
-
-    window.open(
-      targetUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-
-  }
-
-  catch (error) {
-
-    console.error(
-      error
-    );
-
-
-    alert(
-      "Could not open the media file."
-    );
-
-  }
+  );
 
 }
 
 
-/* =============================
+/* =========================
    BADGES
-============================= */
+========================= */
 
-function resultBadge(
-  result
-) {
+function resultBadge(result) {
 
   const value =
-    result ||
-    "unknown";
+    result || "unknown";
 
 
   const labels = {
@@ -834,14 +680,14 @@ function resultBadge(
 }
 
 
-function voucherBadge(
-  status
-) {
+function voucherBadge(status) {
 
   if (!status) {
 
     return `
-      <span class="badge neutral">
+      <span
+        class="badge neutral"
+      >
         NO VOUCHER
       </span>
     `;
@@ -862,18 +708,14 @@ function voucherBadge(
 }
 
 
-/* =============================
-   DATE HELPERS
-============================= */
+/* =========================
+   DATES
+========================= */
 
-function formatDateTime(
-  value
-) {
+function formatDateTime(value) {
 
   const date =
-    timestampToDate(
-      value
-    );
+    timestampToDate(value);
 
 
   if (!date) {
@@ -884,36 +726,21 @@ function formatDateTime(
   return date.toLocaleString(
     "en-PH",
     {
-
-      month:
-        "short",
-
-      day:
-        "numeric",
-
-      year:
-        "numeric",
-
-      hour:
-        "numeric",
-
-      minute:
-        "2-digit"
-
+      month:"short",
+      day:"numeric",
+      year:"numeric",
+      hour:"numeric",
+      minute:"2-digit"
     }
   );
 
 }
 
 
-function expiryText(
-  value
-) {
+function expiryText(value) {
 
   const date =
-    timestampToDate(
-      value
-    );
+    timestampToDate(value);
 
 
   if (!date) {
@@ -926,16 +753,9 @@ function expiryText(
     date.toLocaleDateString(
       "en-PH",
       {
-
-        month:
-          "short",
-
-        day:
-          "numeric",
-
-        year:
-          "numeric"
-
+        month:"short",
+        day:"numeric",
+        year:"numeric"
       }
     )
   );
@@ -943,9 +763,7 @@ function expiryText(
 }
 
 
-function timestampToDate(
-  value
-) {
+function timestampToDate(value) {
 
   if (!value) {
     return null;
@@ -962,9 +780,7 @@ function timestampToDate(
   }
 
 
-  if (
-    value.seconds
-  ) {
+  if (value.seconds) {
 
     return new Date(
       value.seconds *
@@ -975,9 +791,7 @@ function timestampToDate(
 
 
   const date =
-    new Date(
-      value
-    );
+    new Date(value);
 
 
   return Number.isNaN(
@@ -989,15 +803,10 @@ function timestampToDate(
 }
 
 
-function getMillis(
-  value
-) {
+function getMillis(value) {
 
   const date =
-    timestampToDate(
-      value
-    );
-
+    timestampToDate(value);
 
   return date
     ? date.getTime()
@@ -1006,17 +815,14 @@ function getMillis(
 }
 
 
-/* =============================
+/* =========================
    HELPERS
-============================= */
+========================= */
 
-function shortId(
-  value
-) {
+function shortId(value) {
 
   return String(
-    value ||
-    ""
+    value || ""
   ).slice(
     0,
     8
@@ -1025,35 +831,21 @@ function shortId(
 }
 
 
-function escapeHtml(
-  value
-) {
+function escapeHtml(value) {
 
   return String(
     value ?? ""
   ).replace(
     /[&<>"']/g,
-    (character) => {
+    character => {
 
       const map = {
-
-        "&":
-          "&amp;",
-
-        "<":
-          "&lt;",
-
-        ">":
-          "&gt;",
-
-        '"':
-          "&quot;",
-
-        "'":
-          "&#039;"
-
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#039;"
       };
-
 
       return map[
         character
@@ -1065,20 +857,16 @@ function escapeHtml(
 }
 
 
-function escapeAttribute(
-  value
-) {
+function escapeAttribute(value) {
 
-  return escapeHtml(
-    value
-  );
+  return escapeHtml(value);
 
 }
 
 
-/* =============================
+/* =========================
    EVENTS
-============================= */
+========================= */
 
 $("search").addEventListener(
   "input",
@@ -1098,40 +886,8 @@ $("refreshBtn").addEventListener(
 );
 
 
-document.addEventListener(
-  "click",
-  (event) => {
-
-    const button =
-      event.target.closest(
-        ".media-open-btn"
-      );
-
-
-    if (!button) {
-      return;
-    }
-
-
-    const type =
-      button.dataset.type;
-
-
-    const fileName =
-      button.dataset.name;
-
-
-    openMedia(
-      type,
-      fileName
-    );
-
-  }
-);
-
-
-/* =============================
+/* =========================
    START
-============================= */
+========================= */
 
 loadAttempts();
