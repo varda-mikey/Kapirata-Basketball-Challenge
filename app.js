@@ -1,8 +1,12 @@
-import { firebaseConfig } from "./firebase-config.js";
+import {
+  firebaseConfig
+} from "./firebase-config.js";
+
 
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
 
 import {
   getFirestore,
@@ -10,8 +14,10 @@ import {
   setDoc,
   getDoc,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
 
 
 /* =====================================================
@@ -25,12 +31,26 @@ const db =
   getFirestore(firebaseApp);
 
 
+
 /* =====================================================
-   GOOGLE DRIVE MEDIA BRIDGE
+   SETTINGS
 ===================================================== */
 
+const CASHIER_PIN =
+  "0953";
+
+
+const VOUCHER_AMOUNT =
+  10;
+
+
+const VOUCHER_VALID_DAYS =
+  7;
+
+
 const MEDIA_BRIDGE_URL =
-  "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
+  "https://script.google.com/macros/s/AKfycbzeNPftGOJi_ykQmBtSZWH1ikDpycgjsXo168QmkRclgEZbmqkFMZ4-oNQwX2qPzsls/exec";
+
 
 
 /* =====================================================
@@ -40,21 +60,62 @@ const MEDIA_BRIDGE_URL =
 const $ = (id) =>
   document.getElementById(id);
 
+
 const screens =
-  [...document.querySelectorAll(".screen")];
+  [
+    ...document.querySelectorAll(
+      ".screen"
+    )
+  ];
 
-let stream = null;
-let recorder = null;
-let chunks = [];
 
-let videoBlob = null;
+let cameraStream =
+  null;
 
-let receiptFile = null;
-let receiptPreviewUrl = null;
 
-let activeAttempt = null;
+let mediaRecorder =
+  null;
 
-let timerHandle = null;
+
+let recordingChunks =
+  [];
+
+
+let localVideoBlob =
+  null;
+
+
+let localVideoUrl =
+  null;
+
+
+let receiptFile =
+  null;
+
+
+let receiptPreviewUrl =
+  null;
+
+
+let claimPhotoFile =
+  null;
+
+
+let claimPhotoPreviewUrl =
+  null;
+
+
+let activeAttempt =
+  null;
+
+
+let activeVoucher =
+  null;
+
+
+let timerHandle =
+  null;
+
 
 
 /* =====================================================
@@ -63,60 +124,63 @@ let timerHandle = null;
 
 function showScreen(id) {
 
-  screens.forEach((screen) => {
+  screens.forEach(
+    screen => {
 
-    screen.classList.toggle(
-      "active",
-      screen.id === id
-    );
+      screen.classList.toggle(
+        "active",
+        screen.id === id
+      );
 
-  });
+    }
+  );
 
-  window.scrollTo(0, 0);
+
+  window.scrollTo(
+    0,
+    0
+  );
 
 }
 
 
 document
-  .querySelectorAll("[data-next]")
-  .forEach((button) => {
+  .querySelectorAll(
+    "[data-next]"
+  )
+  .forEach(
+    button => {
 
-    button.addEventListener(
-      "click",
-      () => {
+      button.addEventListener(
+        "click",
+        () => {
 
-        showScreen(
-          button.dataset.next
-        );
+          showScreen(
+            button.dataset.next
+          );
 
-      }
-    );
+        }
+      );
 
-  });
+    }
+  );
+
 
 
 /* =====================================================
-   AUTO ADD SAVED VOUCHER CARD
+   SAME-PHONE SAVED VOUCHER CARD
 ===================================================== */
 
 function createSavedVoucherCard() {
 
-  if (
-    document.getElementById(
-      "savedVoucherCard"
-    )
-  ) {
-    return;
-  }
-
-
   const home =
-    document.getElementById(
-      "screen-home"
-    );
+    $("screen-home");
 
 
-  if (!home) {
+  if (
+    !home ||
+    $("savedVoucherCard")
+  ) {
     return;
   }
 
@@ -149,17 +213,14 @@ function createSavedVoucherCard() {
     <strong
       style="
         font-size:28px;
-        margin-top:5px;
+        line-height:1.05;
       "
     >
-      MAY ₱10 VOUCHER KA PA!
+      MAY VOUCHER KA PA!
     </strong>
 
     <small
       id="savedVoucherInfo"
-      style="
-        margin-top:8px;
-      "
     >
       Checking voucher...
     </small>
@@ -167,9 +228,7 @@ function createSavedVoucherCard() {
     <button
       id="openSavedVoucher"
       class="btn btn-dark"
-      style="
-        margin-top:14px;
-      "
+      style="margin-top:14px;"
     >
       OPEN MY VOUCHER
     </button>
@@ -206,6 +265,7 @@ function createSavedVoucherCard() {
 createSavedVoucherCard();
 
 
+
 /* =====================================================
    RECEIPT PHOTO
 ===================================================== */
@@ -213,7 +273,7 @@ createSavedVoucherCard();
 $("receiptPhoto")
   .addEventListener(
     "change",
-    (event) => {
+    event => {
 
       const file =
         event.target.files?.[0];
@@ -229,14 +289,16 @@ $("receiptPhoto")
         8 * 1024 * 1024
       ) {
 
-        $("formError").textContent =
+        $("formError")
+          .textContent =
           "Receipt photo is too large. Please use a photo under 8 MB.";
+
 
         event.target.value =
           "";
 
-        return;
 
+        return;
       }
 
 
@@ -271,12 +333,18 @@ $("receiptPhoto")
           "hidden"
         );
 
+
+      $("formError")
+        .textContent =
+        "";
+
     }
   );
 
 
+
 /* =====================================================
-   START GAME
+   START ATTEMPT
 ===================================================== */
 
 $("continueToCamera")
@@ -290,7 +358,7 @@ $("continueToCamera")
           .trim();
 
 
-      const receipt =
+      const receiptNumber =
         $("receiptNumber")
           .value
           .trim();
@@ -303,16 +371,16 @@ $("continueToCamera")
 
       if (
         !name ||
-        !receipt ||
+        !receiptNumber ||
         !receiptFile ||
         !consent
       ) {
 
-        $("formError").textContent =
-          "Name, receipt number, receipt photo, and consent are required.";
+        $("formError")
+          .textContent =
+          "Name, UTAK receipt number, receipt photo, and consent are required.";
 
         return;
-
       }
 
 
@@ -335,7 +403,7 @@ $("continueToCamera")
 
         const normalizedReceipt =
           normalizeReceipt(
-            receipt
+            receiptNumber
           );
 
 
@@ -347,22 +415,21 @@ $("continueToCamera")
           );
 
 
-        const receiptSnap =
+        const receiptSnapshot =
           await getDoc(
             receiptRef
           );
 
 
         if (
-          receiptSnap.exists()
+          receiptSnapshot.exists()
         ) {
 
           $("formError")
             .textContent =
-            "This receipt was already used.";
+            "This receipt was already used for Kapirata.";
 
           return;
-
         }
 
 
@@ -378,8 +445,8 @@ $("continueToCamera")
           name:
             name,
 
-          receipt:
-            receipt,
+          receiptNumber:
+            receiptNumber,
 
           normalizedReceipt:
             normalizedReceipt,
@@ -402,7 +469,13 @@ $("continueToCamera")
           receiptFileName;
 
 
-        await setDoc(
+        const batch =
+          writeBatch(
+            db
+          );
+
+
+        batch.set(
 
           doc(
             db,
@@ -419,7 +492,7 @@ $("continueToCamera")
               name,
 
             receiptNumber:
-              receipt,
+              receiptNumber,
 
             normalizedReceipt:
               normalizedReceipt,
@@ -427,10 +500,19 @@ $("continueToCamera")
             receiptFileName:
               receiptFileName,
 
+            receiptUploadStatus:
+              "uploading",
+
             result:
               "uploading_receipt",
 
+            voucherStatus:
+              null,
+
             createdAt:
+              serverTimestamp(),
+
+            updatedAt:
               serverTimestamp()
 
           }
@@ -438,14 +520,14 @@ $("continueToCamera")
         );
 
 
-        await setDoc(
+        batch.set(
 
           receiptRef,
 
           {
 
             receiptNumber:
-              receipt,
+              receiptNumber,
 
             normalizedReceipt:
               normalizedReceipt,
@@ -470,9 +552,12 @@ $("continueToCamera")
         );
 
 
+        await batch.commit();
+
+
         $("formError")
           .textContent =
-          "Uploading receipt...";
+          "Uploading receipt photo...";
 
 
         await uploadToDrive({
@@ -487,10 +572,6 @@ $("continueToCamera")
             receiptFileName
 
         });
-
-
-        activeAttempt.result =
-          "started";
 
 
         await setDoc(
@@ -510,6 +591,9 @@ $("continueToCamera")
               "sent",
 
             receiptUploadedAt:
+              serverTimestamp(),
+
+            updatedAt:
               serverTimestamp()
 
           },
@@ -544,9 +628,16 @@ $("continueToCamera")
         );
 
 
+        activeAttempt.result =
+          "started";
+
+
         $("formError")
           .textContent =
           "";
+
+
+        resetCameraUI();
 
 
         showScreen(
@@ -554,6 +645,7 @@ $("continueToCamera")
         );
 
       }
+
 
       catch (error) {
 
@@ -568,6 +660,7 @@ $("continueToCamera")
 
       }
 
+
       finally {
 
         $("continueToCamera")
@@ -577,7 +670,7 @@ $("continueToCamera")
 
         $("continueToCamera")
           .textContent =
-          "GAME NA BES!";
+          "NEXT: SHOOT NA! 🏀";
 
       }
 
@@ -585,9 +678,10 @@ $("continueToCamera")
   );
 
 
+
 /* =====================================================
-   CAMERA
-   LOW-SIZE RECORDING MODE
+   HD CAMERA
+   TARGET: 1280x720 / 30 FPS
 ===================================================== */
 
 $("enableCamera")
@@ -595,9 +689,14 @@ $("enableCamera")
     "click",
     async () => {
 
+      $("cameraMessage")
+        .textContent =
+        "Starting HD camera...";
+
+
       try {
 
-        stream =
+        cameraStream =
           await navigator
             .mediaDevices
             .getUserMedia({
@@ -611,20 +710,17 @@ $("enableCamera")
 
                 width: {
                   ideal:
-                    480
+                    1280
                 },
 
                 height: {
                   ideal:
-                    270
+                    720
                 },
 
                 frameRate: {
                   ideal:
-                    12,
-
-                  max:
-                    15
+                    30
                 }
 
               },
@@ -637,7 +733,21 @@ $("enableCamera")
 
         $("camera")
           .srcObject =
-          stream;
+          cameraStream;
+
+
+        $("camera")
+          .classList
+          .remove(
+            "hidden"
+          );
+
+
+        $("playback")
+          .classList
+          .add(
+            "hidden"
+          );
 
 
         $("cameraMessage")
@@ -662,6 +772,7 @@ $("enableCamera")
 
       }
 
+
       catch (error) {
 
         console.error(
@@ -670,8 +781,15 @@ $("enableCamera")
 
 
         $("cameraMessage")
+          .classList
+          .remove(
+            "hidden"
+          );
+
+
+        $("cameraMessage")
           .textContent =
-          "Camera permission was not granted. Please allow camera access in your browser settings.";
+          "Camera permission was not granted. Allow camera access and try again.";
 
       }
 
@@ -679,8 +797,9 @@ $("enableCamera")
   );
 
 
+
 /* =====================================================
-   RECORD
+   RECORD 10 SECONDS
 ===================================================== */
 
 $("startRecording")
@@ -688,102 +807,78 @@ $("startRecording")
     "click",
     () => {
 
-      if (!stream) {
+      if (
+        !cameraStream
+      ) {
+
         return;
       }
 
 
-      chunks =
+      recordingChunks =
         [];
 
 
-      videoBlob =
+      localVideoBlob =
         null;
 
 
-      const preferredTypes =
-        [
-
-          "video/webm;codecs=vp8",
-
-          "video/webm",
-
-          "video/mp4"
-
-        ];
+      cleanupLocalVideoUrl();
 
 
-      const preferred =
-        preferredTypes.find(
-          (type) => {
-
-            try {
-
-              return MediaRecorder
-                .isTypeSupported(
-                  type
-                );
-
-            }
-
-            catch {
-
-              return false;
-
-            }
-
-          }
-        );
+      const mimeType =
+        chooseRecordingMimeType();
 
 
       const options = {
 
         videoBitsPerSecond:
-          250000
+          4000000
 
       };
 
 
       if (
-        preferred
+        mimeType
       ) {
 
         options.mimeType =
-          preferred;
+          mimeType;
 
       }
 
 
       try {
 
-        recorder =
+        mediaRecorder =
           new MediaRecorder(
-            stream,
+            cameraStream,
             options
           );
 
       }
 
+
       catch {
 
-        recorder =
+        mediaRecorder =
           new MediaRecorder(
-            stream
+            cameraStream
           );
 
       }
 
 
-      recorder
+      mediaRecorder
         .ondataavailable =
-        (event) => {
+        event => {
 
           if (
             event.data &&
             event.data.size > 0
           ) {
 
-            chunks.push(
+            recordingChunks.push(
               event.data
             );
 
@@ -792,47 +887,49 @@ $("startRecording")
         };
 
 
-      recorder
+      mediaRecorder
         .onstop =
         () => {
 
-          videoBlob =
-            new Blob(
-              chunks,
-              {
-
-                type:
-                  recorder.mimeType ||
-                  "video/webm"
-
-              }
-            );
-
-
-          console.log(
-            "Video size:",
-            (
-              videoBlob.size /
-              1024
-            ).toFixed(1),
-            "KB"
+          clearInterval(
+            timerHandle
           );
 
 
-          const videoUrl =
-            URL.createObjectURL(
-              videoBlob
+          $("timer")
+            .textContent =
+            "00:00";
+
+
+          localVideoBlob =
+            new Blob(
+
+              recordingChunks,
+
+              {
+
+                type:
+                  mediaRecorder.mimeType ||
+                  mimeType ||
+                  "video/webm"
+
+              }
+
             );
 
 
-          $("playback")
-            .src =
-            videoUrl;
+          localVideoUrl =
+            URL.createObjectURL(
+              localVideoBlob
+            );
 
 
-          $("cashierPlayback")
-            .src =
-            videoUrl;
+          $("playback").src =
+            localVideoUrl;
+
+
+          $("cashierPlayback").src =
+            localVideoUrl;
 
 
           $("camera")
@@ -856,14 +953,7 @@ $("startRecording")
             );
 
 
-          clearInterval(
-            timerHandle
-          );
-
-
-          $("timer")
-            .textContent =
-            "00:00";
+          stopCameraStream();
 
 
           setTimeout(
@@ -874,14 +964,14 @@ $("startRecording")
               );
 
             },
-            500
+            350
           );
 
         };
 
 
-      recorder.start(
-        500
+      mediaRecorder.start(
+        250
       );
 
 
@@ -899,48 +989,11 @@ $("startRecording")
         );
 
 
-      let seconds =
-        10;
-
-
-      $("timer")
-        .textContent =
-        "00:10";
-
-
-      clearInterval(
-        timerHandle
-      );
-
-
-      timerHandle =
-        setInterval(
-          () => {
-
-            seconds--;
-
-
-            $("timer")
-              .textContent =
-              `00:${String(seconds).padStart(2, "0")}`;
-
-
-            if (
-              seconds <= 0 &&
-              recorder?.state ===
-                "recording"
-            ) {
-
-              recorder.stop();
-
-            }
-
-          },
-          1000
-        );
+      startCountdown();
 
     }
   );
+
 
 
 $("stopRecording")
@@ -948,21 +1001,15 @@ $("stopRecording")
     "click",
     () => {
 
-      if (
-        recorder?.state ===
-        "recording"
-      ) {
-
-        recorder.stop();
-
-      }
+      stopRecordingNow();
 
     }
   );
 
 
+
 /* =====================================================
-   MISSED
+   RESULT: MISSED
 ===================================================== */
 
 $("missedShot")
@@ -978,14 +1025,47 @@ $("missedShot")
           "missed";
 
 
-        await updateAttemptResult(
-          "missed"
-        );
+        try {
+
+          await setDoc(
+
+            doc(
+              db,
+              "attempts",
+              activeAttempt.id
+            ),
+
+            {
+
+              result:
+                "missed",
+
+              updatedAt:
+                serverTimestamp()
+
+            },
+
+            {
+              merge:
+                true
+            }
+
+          );
+
+        }
+
+        catch (error) {
+
+          console.error(
+            error
+          );
+
+        }
 
       }
 
 
-      stopCamera();
+      cleanupVideo();
 
 
       showScreen(
@@ -996,8 +1076,25 @@ $("missedShot")
   );
 
 
+
+$("closeMissed")
+  .addEventListener(
+    "click",
+    () => {
+
+      resetGame();
+
+      showScreen(
+        "screen-home"
+      );
+
+    }
+  );
+
+
+
 /* =====================================================
-   STUDENT MADE SHOT
+   RESULT: MADE SHOT
 ===================================================== */
 
 $("madeShot")
@@ -1006,15 +1103,16 @@ $("madeShot")
     async () => {
 
       if (
-        !videoBlob
+        !activeAttempt ||
+        !localVideoBlob ||
+        !localVideoUrl
       ) {
 
         alert(
-          "No video was recorded."
+          "No challenge video was recorded."
         );
 
         return;
-
       }
 
 
@@ -1022,210 +1120,7 @@ $("madeShot")
         "pending_cashier";
 
 
-      await updateAttemptResult(
-        "pending_cashier"
-      );
-
-
-      $("summaryName")
-        .textContent =
-        activeAttempt.name;
-
-
-      $("summaryReceipt")
-        .textContent =
-        activeAttempt.receipt;
-
-
-      stopCamera();
-
-
-      showScreen(
-        "screen-cashier"
-      );
-
-    }
-  );
-
-
-/* =====================================================
-   CASHIER REJECT
-===================================================== */
-
-$("cashierReject")
-  .addEventListener(
-    "click",
-    async () => {
-
-      activeAttempt.result =
-        "cashier_rejected";
-
-
-      await updateAttemptResult(
-        "cashier_rejected"
-      );
-
-
-      alert(
-        "Attempt marked invalid."
-      );
-
-
-      resetGame();
-
-    }
-  );
-
-
-/* =====================================================
-   CASHIER APPROVE
-===================================================== */
-
-$("cashierApprove")
-  .addEventListener(
-    "click",
-    () => {
-
-      showScreen(
-        "screen-pin"
-      );
-
-    }
-  );
-
-
-/* =====================================================
-   CASHIER PIN
-   SAVE SUCCESS VIDEO
-   CREATE 7-DAY VOUCHER
-===================================================== */
-
-$("verifyPin")
-  .addEventListener(
-    "click",
-    async () => {
-
-      const DEMO_PIN =
-        "0953";
-
-
-      if (
-        $("cashierPin").value !==
-        DEMO_PIN
-      ) {
-
-        $("pinError")
-          .textContent =
-          "Incorrect cashier code.";
-
-        return;
-
-      }
-
-
-      if (
-        !videoBlob
-      ) {
-
-        $("pinError")
-          .textContent =
-          "Successful video is missing.";
-
-        return;
-
-      }
-
-
-      $("pinError")
-        .textContent =
-        "";
-
-
-      $("verifyPin")
-        .disabled =
-        true;
-
-
-      const sizeKB =
-        Math.round(
-          videoBlob.size /
-          1024
-        );
-
-
-      $("verifyPin")
-        .textContent =
-        `SAVING VIDEO (${sizeKB} KB)...`;
-
-
       try {
-
-        const videoFileName =
-          buildVideoFileName(
-            activeAttempt,
-            videoBlob
-          );
-
-
-        activeAttempt
-          .videoFileName =
-          videoFileName;
-
-
-        await uploadToDrive({
-
-          type:
-            "video",
-
-          file:
-            videoBlob,
-
-          fileName:
-            videoFileName
-
-        });
-
-
-        $("verifyPin")
-          .textContent =
-          "CREATING VOUCHER...";
-
-
-        const voucherCode =
-          generateVoucherCode();
-
-
-        const issuedDate =
-          new Date();
-
-
-        const expiryDate =
-          new Date(
-            issuedDate
-          );
-
-
-        expiryDate.setDate(
-          expiryDate.getDate() +
-          7
-        );
-
-
-        activeAttempt.result =
-          "approved";
-
-
-        activeAttempt.voucherCode =
-          voucherCode;
-
-
-        activeAttempt.voucherStatus =
-          "available";
-
-
-        activeAttempt.expiresAt =
-          expiryDate;
-
 
         await setDoc(
 
@@ -1238,33 +1133,13 @@ $("verifyPin")
           {
 
             result:
-              "approved",
+              "pending_cashier",
 
-            successfulVideoFileName:
-              videoFileName,
+            cashierReviewStatus:
+              "pending",
 
-            successfulVideoSizeKB:
-              sizeKB,
-
-            videoUploadStatus:
-              "sent",
-
-            videoUploadedAt:
-              serverTimestamp(),
-
-            voucherCode:
-              voucherCode,
-
-            voucherStatus:
-              "available",
-
-            validatedAt:
-              serverTimestamp(),
-
-            expiresAt:
-              Timestamp.fromDate(
-                expiryDate
-              )
+            updatedAt:
+              serverTimestamp()
 
           },
 
@@ -1275,70 +1150,114 @@ $("verifyPin")
 
         );
 
+      }
 
-        await setDoc(
+      catch (error) {
 
-          doc(
-            db,
-            "vouchers",
-            voucherCode
-          ),
+        console.error(
+          error
+        );
 
-          {
+      }
 
-            voucherCode:
-              voucherCode,
 
-            attemptId:
-              activeAttempt.id,
+      $("summaryName")
+        .textContent =
+        activeAttempt.name;
 
-            name:
-              activeAttempt.name,
 
-            receiptNumber:
-              activeAttempt.receipt,
+      $("summaryReceipt")
+        .textContent =
+        activeAttempt.receiptNumber;
 
-            normalizedReceipt:
-              activeAttempt.normalizedReceipt,
 
-            amount:
-              10,
+      $("cashierPlayback")
+        .src =
+        localVideoUrl;
 
-            status:
-              "available",
 
-            issuedAt:
-              serverTimestamp(),
+      showScreen(
+        "screen-cashier"
+      );
 
-            expiresAt:
-              Timestamp.fromDate(
-                expiryDate
-              )
+    }
+  );
 
-          }
 
+
+/* =====================================================
+   CASHIER REVIEW
+===================================================== */
+
+$("cashierApprove")
+  .addEventListener(
+    "click",
+    () => {
+
+      $("cashierPin")
+        .value =
+        "";
+
+
+      $("pinError")
+        .textContent =
+        "";
+
+
+      showScreen(
+        "screen-pin"
+      );
+
+    }
+  );
+
+
+
+$("cashierReject")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (
+        !activeAttempt
+      ) {
+        return;
+      }
+
+
+      const confirmed =
+        confirm(
+          "Mark this attempt as INVALID?"
         );
 
 
+      if (
+        !confirmed
+      ) {
+        return;
+      }
+
+
+      try {
+
         await setDoc(
 
           doc(
             db,
-            "receipts",
-            activeAttempt
-              .normalizedReceipt
+            "attempts",
+            activeAttempt.id
           ),
 
           {
 
-            status:
-              "used",
-
             result:
-              "approved",
+              "cashier_rejected",
 
-            voucherCode:
-              voucherCode,
+            cashierReviewStatus:
+              "rejected",
+
+            cashierRejectedAt:
+              serverTimestamp(),
 
             updatedAt:
               serverTimestamp()
@@ -1353,33 +1272,317 @@ $("verifyPin")
         );
 
 
-        activeAttempt
-          .voucherStatus =
-          "available";
+        cleanupVideo();
 
 
-        displayVoucher({
+        alert(
+          "Attempt marked INVALID."
+        );
+
+
+        resetGame();
+
+
+        showScreen(
+          "screen-home"
+        );
+
+      }
+
+
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        alert(
+          "Could not update the attempt."
+        );
+
+      }
+
+    }
+  );
+
+
+
+/* =====================================================
+   CASHIER PIN / ISSUE VOUCHER
+===================================================== */
+
+$("verifyPin")
+  .addEventListener(
+    "click",
+    async () => {
+
+      const pin =
+        $("cashierPin")
+          .value
+          .trim();
+
+
+      if (
+        pin !== CASHIER_PIN
+      ) {
+
+        $("pinError")
+          .textContent =
+          "Incorrect cashier PIN.";
+
+        return;
+      }
+
+
+      if (
+        !activeAttempt
+      ) {
+
+        $("pinError")
+          .textContent =
+          "Attempt information is missing.";
+
+        return;
+      }
+
+
+      $("verifyPin")
+        .disabled =
+        true;
+
+
+      $("verifyPin")
+        .textContent =
+        "CREATING VOUCHER...";
+
+
+      $("pinError")
+        .textContent =
+        "";
+
+
+      try {
+
+        const attemptRef =
+          doc(
+            db,
+            "attempts",
+            activeAttempt.id
+          );
+
+
+        const attemptSnapshot =
+          await getDoc(
+            attemptRef
+          );
+
+
+        const existingAttempt =
+          attemptSnapshot.exists()
+            ? attemptSnapshot.data()
+            : {};
+
+
+        let voucherCode =
+          existingAttempt.voucherCode ||
+          null;
+
+
+        let expiresAt =
+          existingAttempt.expiresAt ||
+          null;
+
+
+        if (
+          !voucherCode
+        ) {
+
+          voucherCode =
+            generateVoucherCode();
+
+
+          const expiryDate =
+            new Date();
+
+
+          expiryDate.setDate(
+            expiryDate.getDate() +
+            VOUCHER_VALID_DAYS
+          );
+
+
+          expiresAt =
+            Timestamp.fromDate(
+              expiryDate
+            );
+
+
+          const batch =
+            writeBatch(
+              db
+            );
+
+
+          batch.set(
+
+            doc(
+              db,
+              "vouchers",
+              voucherCode
+            ),
+
+            {
+
+              voucherCode:
+                voucherCode,
+
+              attemptId:
+                activeAttempt.id,
+
+              name:
+                activeAttempt.name,
+
+              receiptNumber:
+                activeAttempt.receiptNumber,
+
+              normalizedReceipt:
+                activeAttempt.normalizedReceipt,
+
+              amount:
+                VOUCHER_AMOUNT,
+
+              status:
+                "available",
+
+              issuedAt:
+                serverTimestamp(),
+
+              expiresAt:
+                expiresAt,
+
+              redeemedAt:
+                null,
+
+              claimEvidenceFileName:
+                null
+
+            }
+
+          );
+
+
+          batch.set(
+
+            attemptRef,
+
+            {
+
+              result:
+                "approved",
+
+              cashierReviewStatus:
+                "approved",
+
+              cashierApprovedAt:
+                serverTimestamp(),
+
+              voucherCode:
+                voucherCode,
+
+              voucherStatus:
+                "available",
+
+              voucherAmount:
+                VOUCHER_AMOUNT,
+
+              expiresAt:
+                expiresAt,
+
+              updatedAt:
+                serverTimestamp()
+
+            },
+
+            {
+              merge:
+                true
+            }
+
+          );
+
+
+          batch.set(
+
+            doc(
+              db,
+              "receipts",
+              activeAttempt.normalizedReceipt
+            ),
+
+            {
+
+              voucherCode:
+                voucherCode,
+
+              status:
+                "voucher_issued",
+
+              updatedAt:
+                serverTimestamp()
+
+            },
+
+            {
+              merge:
+                true
+            }
+
+          );
+
+
+          await batch.commit();
+
+        }
+
+
+        activeVoucher = {
 
           voucherCode:
             voucherCode,
+
+          attemptId:
+            activeAttempt.id,
+
+          name:
+            activeAttempt.name,
+
+          receiptNumber:
+            activeAttempt.receiptNumber,
+
+          normalizedReceipt:
+            activeAttempt.normalizedReceipt,
 
           status:
             "available",
 
           expiresAt:
-            Timestamp.fromDate(
-              expiryDate
-            )
+            expiresAt
 
-        });
+        };
 
 
-        rememberVoucher(
-          voucherCode
+        saveVoucherLocally(
+          activeVoucher
         );
 
 
-        await checkSavedVoucher();
+        cleanupVideo();
+
+
+        displayVoucher(
+          activeVoucher
+        );
 
 
         showScreen(
@@ -1387,6 +1590,7 @@ $("verifyPin")
         );
 
       }
+
 
       catch (error) {
 
@@ -1397,9 +1601,10 @@ $("verifyPin")
 
         $("pinError")
           .textContent =
-          "Could not save successful video or create voucher. Please try again.";
+          "Could not create voucher. Please try again.";
 
       }
+
 
       finally {
 
@@ -1410,7 +1615,7 @@ $("verifyPin")
 
         $("verifyPin")
           .textContent =
-          "CONFIRM";
+          "CONFIRM SUCCESS";
 
       }
 
@@ -1418,8 +1623,9 @@ $("verifyPin")
   );
 
 
+
 /* =====================================================
-   MY VOUCHER — NAME + RECEIPT
+   MY VOUCHER LOOKUP
 ===================================================== */
 
 $("findVoucher")
@@ -1433,23 +1639,27 @@ $("findVoucher")
           .trim();
 
 
-      const receipt =
+      const receiptNumber =
         $("voucherLookupReceipt")
           .value
           .trim();
 
 
+      $("voucherLookupError")
+        .textContent =
+        "";
+
+
       if (
         !name ||
-        !receipt
+        !receiptNumber
       ) {
 
         $("voucherLookupError")
           .textContent =
-          "Please enter your name and receipt number.";
+          "Enter your name and UTAK receipt number.";
 
         return;
-
       }
 
 
@@ -1463,156 +1673,34 @@ $("findVoucher")
         "SEARCHING...";
 
 
-      $("voucherLookupError")
-        .textContent =
-        "";
-
-
       try {
 
-        const normalizedReceipt =
-          normalizeReceipt(
-            receipt
-          );
-
-
-        const receiptRef =
-          doc(
-            db,
-            "receipts",
-            normalizedReceipt
-          );
-
-
-        const receiptSnap =
-          await getDoc(
-            receiptRef
+        const voucher =
+          await findVoucherByReceipt(
+            name,
+            receiptNumber
           );
 
 
         if (
-          !receiptSnap.exists()
+          !voucher
         ) {
 
           $("voucherLookupError")
             .textContent =
-            "Walang voucher na nakita bes. Check your receipt number.";
+            "No voucher found for that name and receipt.";
 
           return;
-
         }
 
 
-        const receiptData =
-          receiptSnap.data();
+        activeVoucher =
+          voucher;
 
 
-        if (
-          !receiptData.voucherCode
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "This receipt has no winning voucher.";
-
-          return;
-
-        }
-
-
-        const voucherRef =
-          doc(
-            db,
-            "vouchers",
-            receiptData.voucherCode
-          );
-
-
-        const voucherSnap =
-          await getDoc(
-            voucherRef
-          );
-
-
-        if (
-          !voucherSnap.exists()
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "Voucher record not found.";
-
-          return;
-
-        }
-
-
-        let voucher =
-          voucherSnap.data();
-
-
-        if (
-          String(
-            voucher.name ||
-            ""
-          )
-            .trim()
-            .toLowerCase()
-          !==
-          name
-            .trim()
-            .toLowerCase()
-        ) {
-
-          $("voucherLookupError")
-            .textContent =
-            "Name does not match this receipt.";
-
-          return;
-
-        }
-
-
-        await refreshExpiredStatus(
-          voucherRef,
+        saveVoucherLocally(
           voucher
         );
-
-
-        const refreshed =
-          await getDoc(
-            voucherRef
-          );
-
-
-        voucher =
-          refreshed.data();
-
-
-        activeAttempt = {
-
-          id:
-            voucher.attemptId,
-
-          name:
-            voucher.name,
-
-          receipt:
-            voucher.receiptNumber,
-
-          normalizedReceipt:
-            voucher.normalizedReceipt,
-
-          voucherCode:
-            voucher.voucherCode,
-
-          voucherStatus:
-            voucher.status,
-
-          expiresAt:
-            voucher.expiresAt
-
-        };
 
 
         displayVoucher(
@@ -1620,32 +1708,12 @@ $("findVoucher")
         );
 
 
-        if (
-          voucher.status ===
-          "available"
-        ) {
-
-          rememberVoucher(
-            voucher.voucherCode
-          );
-
-        }
-
-        else {
-
-          clearSavedVoucher();
-
-        }
-
-
-        await checkSavedVoucher();
-
-
         showScreen(
           "screen-voucher"
         );
 
       }
+
 
       catch (error) {
 
@@ -1656,9 +1724,10 @@ $("findVoucher")
 
         $("voucherLookupError")
           .textContent =
-          "Could not retrieve your voucher. Please try again.";
+          "Could not search right now. Please try again.";
 
       }
+
 
       finally {
 
@@ -1677,227 +1746,83 @@ $("findVoucher")
   );
 
 
+
 /* =====================================================
-   SAME-PHONE SAVED VOUCHER
+   OPEN SAME-PHONE VOUCHER
 ===================================================== */
-
-async function checkSavedVoucher() {
-
-  const card =
-    $("savedVoucherCard");
-
-
-  if (!card) {
-    return;
-  }
-
-
-  const savedCode =
-    localStorage.getItem(
-      "kapirata_last_voucher"
-    );
-
-
-  if (
-    !savedCode
-  ) {
-
-    card.classList
-      .add(
-        "hidden"
-      );
-
-    return;
-
-  }
-
-
-  try {
-
-    const voucherRef =
-      doc(
-        db,
-        "vouchers",
-        savedCode
-      );
-
-
-    const voucherSnap =
-      await getDoc(
-        voucherRef
-      );
-
-
-    if (
-      !voucherSnap.exists()
-    ) {
-
-      clearSavedVoucher();
-
-      return;
-
-    }
-
-
-    let voucher =
-      voucherSnap.data();
-
-
-    await refreshExpiredStatus(
-      voucherRef,
-      voucher
-    );
-
-
-    const refreshed =
-      await getDoc(
-        voucherRef
-      );
-
-
-    voucher =
-      refreshed.data();
-
-
-    if (
-      voucher.status !==
-      "available"
-    ) {
-
-      clearSavedVoucher();
-
-      return;
-
-    }
-
-
-    const expiry =
-      timestampToDate(
-        voucher.expiresAt
-      );
-
-
-    $("savedVoucherInfo")
-      .textContent =
-      expiry
-        ? `₱10 OFF • Valid until ${formatDate(expiry)}`
-        : "₱10 OFF • Available";
-
-
-    card
-      .classList
-      .remove(
-        "hidden"
-      );
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Saved voucher check failed:",
-      error
-    );
-
-  }
-
-}
-
 
 async function openSavedVoucher() {
 
-  const code =
-    localStorage.getItem(
+  const saved =
+    readSavedVoucher();
+
+
+  if (
+    !saved?.voucherCode
+  ) {
+
+    localStorage.removeItem(
       "kapirata_last_voucher"
     );
 
 
-  if (!code) {
+    updateSavedVoucherCard();
+
     return;
   }
 
 
   try {
 
-    const voucherRef =
-      doc(
-        db,
-        "vouchers",
-        code
-      );
-
-
-    const voucherSnap =
+    const snapshot =
       await getDoc(
-        voucherRef
+
+        doc(
+          db,
+          "vouchers",
+          saved.voucherCode
+        )
+
       );
 
 
     if (
-      !voucherSnap.exists()
+      !snapshot.exists()
     ) {
 
-      clearSavedVoucher();
-
-      return;
-
-    }
-
-
-    let voucher =
-      voucherSnap.data();
-
-
-    await refreshExpiredStatus(
-      voucherRef,
-      voucher
-    );
-
-
-    const refreshed =
-      await getDoc(
-        voucherRef
+      localStorage.removeItem(
+        "kapirata_last_voucher"
       );
 
 
-    voucher =
-      refreshed.data();
+      updateSavedVoucherCard();
+
+      return;
+    }
 
 
-    activeAttempt = {
+    const voucher = {
 
-      id:
-        voucher.attemptId,
-
-      name:
-        voucher.name,
-
-      receipt:
-        voucher.receiptNumber,
-
-      normalizedReceipt:
-        voucher.normalizedReceipt,
+      ...snapshot.data(),
 
       voucherCode:
-        voucher.voucherCode,
-
-      voucherStatus:
-        voucher.status,
-
-      expiresAt:
-        voucher.expiresAt
+        saved.voucherCode
 
     };
 
 
-    if (
-      voucher.status !==
-      "available"
-    ) {
+    await refreshExpiryStatus(
+      voucher
+    );
 
-      clearSavedVoucher();
 
-    }
+    activeVoucher =
+      voucher;
+
+
+    saveVoucherLocally(
+      voucher
+    );
 
 
     displayVoucher(
@@ -1911,10 +1836,16 @@ async function openSavedVoucher() {
 
   }
 
+
   catch (error) {
 
     console.error(
       error
+    );
+
+
+    alert(
+      "Could not open the voucher right now."
     );
 
   }
@@ -1922,8 +1853,108 @@ async function openSavedVoucher() {
 }
 
 
+
 /* =====================================================
-   REDEEM VOUCHER
+   DISPLAY VOUCHER
+===================================================== */
+
+function displayVoucher(voucher) {
+
+  $("voucherCode")
+    .textContent =
+    voucher.voucherCode ||
+    "—";
+
+
+  let status =
+    voucher.status ||
+    "available";
+
+
+  if (
+    isExpired(
+      voucher.expiresAt
+    ) &&
+    status === "available"
+  ) {
+
+    status =
+      "expired";
+
+  }
+
+
+  $("voucherStatus")
+    .textContent =
+    status.toUpperCase();
+
+
+  $("voucherStatus")
+    .className =
+    `status ${status}`;
+
+
+  $("voucherExpiry")
+    .textContent =
+    formatVoucherExpiry(
+      voucher.expiresAt
+    );
+
+
+  if (
+    status === "available"
+  ) {
+
+    $("redeemVoucher")
+      .disabled =
+      false;
+
+
+    $("redeemVoucher")
+      .textContent =
+      "CLAIM / REDEEM ₱10";
+
+  }
+
+
+  else if (
+    status === "redeemed"
+  ) {
+
+    $("redeemVoucher")
+      .disabled =
+      true;
+
+
+    $("redeemVoucher")
+      .textContent =
+      "ALREADY REDEEMED";
+
+  }
+
+
+  else {
+
+    $("redeemVoucher")
+      .disabled =
+      true;
+
+
+    $("redeemVoucher")
+      .textContent =
+      "VOUCHER EXPIRED";
+
+  }
+
+
+  updateSavedVoucherCard();
+
+}
+
+
+
+/* =====================================================
+   START REDEMPTION
 ===================================================== */
 
 $("redeemVoucher")
@@ -1932,125 +1963,366 @@ $("redeemVoucher")
     async () => {
 
       if (
-        !activeAttempt ||
-        activeAttempt.voucherStatus ===
-          "redeemed" ||
-        activeAttempt.voucherStatus ===
-          "expired"
+        !activeVoucher
+      ) {
+        return;
+      }
+
+
+      await refreshExpiryStatus(
+        activeVoucher
+      );
+
+
+      if (
+        activeVoucher.status !==
+        "available"
       ) {
 
+        displayVoucher(
+          activeVoucher
+        );
+
         return;
+      }
+
+
+      claimPhotoFile =
+        null;
+
+
+      if (
+        claimPhotoPreviewUrl
+      ) {
+
+        URL.revokeObjectURL(
+          claimPhotoPreviewUrl
+        );
+
+
+        claimPhotoPreviewUrl =
+          null;
 
       }
 
 
-      const voucherRef =
-        doc(
-          db,
-          "vouchers",
-          activeAttempt.voucherCode
+      $("claimPhoto").value =
+        "";
+
+
+      $("claimPhotoPreview")
+        .classList
+        .add(
+          "hidden"
         );
+
+
+      $("confirmClaimPhoto")
+        .disabled =
+        true;
+
+
+      $("claimError")
+        .textContent =
+        "";
+
+
+      $("claimVoucherCode")
+        .textContent =
+        activeVoucher.voucherCode;
+
+
+      $("claimStudentName")
+        .textContent =
+        activeVoucher.name ||
+        "—";
+
+
+      $("claimReceiptNumber")
+        .textContent =
+        activeVoucher.receiptNumber ||
+        "—";
+
+
+      showScreen(
+        "screen-claim-photo"
+      );
+
+    }
+  );
+
+
+
+/* =====================================================
+   CLAIM EVIDENCE PHOTO
+===================================================== */
+
+$("claimPhoto")
+  .addEventListener(
+    "change",
+    event => {
+
+      const file =
+        event.target.files?.[0];
+
+
+      if (
+        !file
+      ) {
+
+        claimPhotoFile =
+          null;
+
+
+        $("confirmClaimPhoto")
+          .disabled =
+          true;
+
+
+        return;
+      }
+
+
+      if (
+        file.size >
+        8 * 1024 * 1024
+      ) {
+
+        $("claimError")
+          .textContent =
+          "Claim photo is too large. Please use a photo under 8 MB.";
+
+
+        event.target.value =
+          "";
+
+
+        claimPhotoFile =
+          null;
+
+
+        $("confirmClaimPhoto")
+          .disabled =
+          true;
+
+
+        return;
+      }
+
+
+      claimPhotoFile =
+        file;
+
+
+      $("claimError")
+        .textContent =
+        "";
+
+
+      if (
+        claimPhotoPreviewUrl
+      ) {
+
+        URL.revokeObjectURL(
+          claimPhotoPreviewUrl
+        );
+
+      }
+
+
+      claimPhotoPreviewUrl =
+        URL.createObjectURL(
+          file
+        );
+
+
+      $("claimPhotoPreview").src =
+        claimPhotoPreviewUrl;
+
+
+      $("claimPhotoPreview")
+        .classList
+        .remove(
+          "hidden"
+        );
+
+
+      $("confirmClaimPhoto")
+        .disabled =
+        false;
+
+    }
+  );
+
+
+
+/* =====================================================
+   CONFIRM CLAIM + REDEEM
+===================================================== */
+
+$("confirmClaimPhoto")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (
+        !activeVoucher ||
+        !claimPhotoFile
+      ) {
+
+        $("claimError")
+          .textContent =
+          "Claim evidence photo is required.";
+
+        return;
+      }
+
+
+      $("confirmClaimPhoto")
+        .disabled =
+        true;
+
+
+      $("confirmClaimPhoto")
+        .textContent =
+        "SAVING CLAIM...";
+
+
+      $("claimError")
+        .textContent =
+        "";
 
 
       try {
 
-        const voucherSnap =
+        const voucherRef =
+          doc(
+            db,
+            "vouchers",
+            activeVoucher.voucherCode
+          );
+
+
+        const voucherSnapshot =
           await getDoc(
             voucherRef
           );
 
 
         if (
-          !voucherSnap.exists()
+          !voucherSnapshot.exists()
         ) {
 
-          alert(
+          throw new Error(
             "Voucher not found."
           );
 
-          return;
-
         }
 
 
-        let voucher =
-          voucherSnap.data();
-
-
-        await refreshExpiredStatus(
-          voucherRef,
-          voucher
-        );
-
-
-        const freshSnap =
-          await getDoc(
-            voucherRef
-          );
-
-
-        voucher =
-          freshSnap.data();
+        const currentVoucher =
+          voucherSnapshot.data();
 
 
         if (
-          voucher.status ===
-          "expired"
-        ) {
-
-          activeAttempt.voucherStatus =
-            "expired";
-
-
-          clearSavedVoucher();
-
-
-          displayVoucher(
-            voucher
-          );
-
-          return;
-
-        }
-
-
-        if (
-          voucher.status ===
+          currentVoucher.status ===
           "redeemed"
         ) {
 
-          activeAttempt.voucherStatus =
-            "redeemed";
-
-
-          clearSavedVoucher();
+          activeVoucher = {
+            ...currentVoucher,
+            voucherCode:
+              activeVoucher.voucherCode
+          };
 
 
           displayVoucher(
-            voucher
+            activeVoucher
           );
+
+
+          showScreen(
+            "screen-voucher"
+          );
+
 
           return;
-
         }
-
-
-        const confirmRedeem =
-          confirm(
-            "Cashier: redeem this ₱10 voucher now? This cannot be undone."
-          );
 
 
         if (
-          !confirmRedeem
+          isExpired(
+            currentVoucher.expiresAt
+          )
         ) {
 
-          return;
+          await markVoucherExpired(
+            activeVoucher.voucherCode,
+            currentVoucher.attemptId
+          );
 
+
+          activeVoucher.status =
+            "expired";
+
+
+          displayVoucher(
+            activeVoucher
+          );
+
+
+          showScreen(
+            "screen-voucher"
+          );
+
+
+          return;
         }
 
 
-        await setDoc(
+        const claimFileName =
+          buildClaimFileName(
+            activeVoucher,
+            claimPhotoFile
+          );
+
+
+        $("claimError")
+          .textContent =
+          "Uploading claim evidence...";
+
+
+        await uploadToDrive({
+
+          type:
+            "claim",
+
+          file:
+            claimPhotoFile,
+
+          fileName:
+            claimFileName
+
+        });
+
+
+        const redeemedDate =
+          new Date();
+
+
+        const redeemedTimestamp =
+          Timestamp.fromDate(
+            redeemedDate
+          );
+
+
+        const batch =
+          writeBatch(
+            db
+          );
+
+
+        batch.set(
 
           voucherRef,
 
@@ -2059,8 +2331,17 @@ $("redeemVoucher")
             status:
               "redeemed",
 
+            claimEvidenceFileName:
+              claimFileName,
+
+            claimEvidenceUploadStatus:
+              "sent",
+
+            claimEvidenceUploadedAt:
+              serverTimestamp(),
+
             redeemedAt:
-              serverTimestamp()
+              redeemedTimestamp
 
           },
 
@@ -2073,15 +2354,15 @@ $("redeemVoucher")
 
 
         if (
-          activeAttempt.id
+          currentVoucher.attemptId
         ) {
 
-          await setDoc(
+          batch.set(
 
             doc(
               db,
               "attempts",
-              activeAttempt.id
+              currentVoucher.attemptId
             ),
 
             {
@@ -2089,7 +2370,16 @@ $("redeemVoucher")
               voucherStatus:
                 "redeemed",
 
+              claimEvidenceFileName:
+                claimFileName,
+
+              claimEvidenceUploadStatus:
+                "sent",
+
               redeemedAt:
+                redeemedTimestamp,
+
+              updatedAt:
                 serverTimestamp()
 
             },
@@ -2104,26 +2394,110 @@ $("redeemVoucher")
         }
 
 
-        activeAttempt.voucherStatus =
-          "redeemed";
+        if (
+          currentVoucher.normalizedReceipt
+        ) {
+
+          batch.set(
+
+            doc(
+              db,
+              "receipts",
+              currentVoucher.normalizedReceipt
+            ),
+
+            {
+
+              status:
+                "redeemed",
+
+              voucherCode:
+                activeVoucher.voucherCode,
+
+              redeemedAt:
+                redeemedTimestamp,
+
+              updatedAt:
+                serverTimestamp()
+
+            },
+
+            {
+              merge:
+                true
+            }
+
+          );
+
+        }
 
 
-        clearSavedVoucher();
+        await batch.commit();
 
 
-        displayVoucher({
+        activeVoucher = {
 
-          ...voucher,
+          ...currentVoucher,
+
+          voucherCode:
+            activeVoucher.voucherCode,
 
           status:
-            "redeemed"
+            "redeemed",
 
-        });
+          claimEvidenceFileName:
+            claimFileName,
+
+          redeemedAt:
+            redeemedTimestamp
+
+        };
 
 
-        await checkSavedVoucher();
+        saveVoucherLocally(
+          activeVoucher
+        );
+
+
+        $("redeemedVoucherCode")
+          .textContent =
+          activeVoucher.voucherCode;
+
+
+        $("redeemedAtText")
+          .textContent =
+          "Redeemed: " +
+          redeemedDate.toLocaleString(
+            "en-PH",
+            {
+              month:
+                "short",
+              day:
+                "numeric",
+              year:
+                "numeric",
+              hour:
+                "numeric",
+              minute:
+                "2-digit"
+            }
+          );
+
+
+        $("claimError")
+          .textContent =
+          "";
+
+
+        updateSavedVoucherCard();
+
+
+        showScreen(
+          "screen-redeemed"
+        );
 
       }
+
 
       catch (error) {
 
@@ -2132,14 +2506,363 @@ $("redeemVoucher")
         );
 
 
-        alert(
-          "Could not redeem voucher. Please try again."
-        );
+        $("claimError")
+          .textContent =
+          "Could not complete redemption. Please check the connection and try again.";
+
+
+        $("confirmClaimPhoto")
+          .disabled =
+          false;
+
+      }
+
+
+      finally {
+
+        $("confirmClaimPhoto")
+          .textContent =
+          "CONFIRM & REDEEM ₱10";
 
       }
 
     }
   );
+
+
+
+$("cancelClaim")
+  .addEventListener(
+    "click",
+    () => {
+
+      displayVoucher(
+        activeVoucher
+      );
+
+
+      showScreen(
+        "screen-voucher"
+      );
+
+    }
+  );
+
+
+
+$("finishRedemption")
+  .addEventListener(
+    "click",
+    () => {
+
+      resetGame();
+
+
+      showScreen(
+        "screen-home"
+      );
+
+    }
+  );
+
+
+
+/* =====================================================
+   HOME / NEW GAME
+===================================================== */
+
+$("newGame")
+  .addEventListener(
+    "click",
+    () => {
+
+      resetGame();
+
+
+      showScreen(
+        "screen-home"
+      );
+
+    }
+  );
+
+
+
+/* =====================================================
+   FIND VOUCHER BY RECEIPT
+===================================================== */
+
+async function findVoucherByReceipt(
+  name,
+  receiptNumber
+) {
+
+  const normalizedReceipt =
+    normalizeReceipt(
+      receiptNumber
+    );
+
+
+  const receiptSnapshot =
+    await getDoc(
+
+      doc(
+        db,
+        "receipts",
+        normalizedReceipt
+      )
+
+    );
+
+
+  if (
+    !receiptSnapshot.exists()
+  ) {
+
+    return null;
+  }
+
+
+  const receiptData =
+    receiptSnapshot.data();
+
+
+  if (
+    normalizeName(
+      receiptData.name
+    ) !==
+    normalizeName(
+      name
+    )
+  ) {
+
+    return null;
+  }
+
+
+  let voucherCode =
+    receiptData.voucherCode;
+
+
+  if (
+    !voucherCode &&
+    receiptData.attemptId
+  ) {
+
+    const attemptSnapshot =
+      await getDoc(
+
+        doc(
+          db,
+          "attempts",
+          receiptData.attemptId
+        )
+
+      );
+
+
+    if (
+      attemptSnapshot.exists()
+    ) {
+
+      voucherCode =
+        attemptSnapshot
+          .data()
+          .voucherCode;
+
+    }
+
+  }
+
+
+  if (
+    !voucherCode
+  ) {
+
+    return null;
+  }
+
+
+  const voucherSnapshot =
+    await getDoc(
+
+      doc(
+        db,
+        "vouchers",
+        voucherCode
+      )
+
+    );
+
+
+  if (
+    !voucherSnapshot.exists()
+  ) {
+
+    return null;
+  }
+
+
+  const voucher = {
+
+    ...voucherSnapshot.data(),
+
+    voucherCode:
+      voucherCode
+
+  };
+
+
+  await refreshExpiryStatus(
+    voucher
+  );
+
+
+  return voucher;
+
+}
+
+
+
+/* =====================================================
+   EXPIRY
+===================================================== */
+
+async function refreshExpiryStatus(
+  voucher
+) {
+
+  if (
+    !voucher
+  ) {
+    return;
+  }
+
+
+  if (
+    voucher.status === "available" &&
+    isExpired(
+      voucher.expiresAt
+    )
+  ) {
+
+    await markVoucherExpired(
+
+      voucher.voucherCode,
+
+      voucher.attemptId
+
+    );
+
+
+    voucher.status =
+      "expired";
+
+
+    saveVoucherLocally(
+      voucher
+    );
+
+  }
+
+}
+
+
+
+async function markVoucherExpired(
+  voucherCode,
+  attemptId
+) {
+
+  const batch =
+    writeBatch(
+      db
+    );
+
+
+  batch.set(
+
+    doc(
+      db,
+      "vouchers",
+      voucherCode
+    ),
+
+    {
+
+      status:
+        "expired"
+
+    },
+
+    {
+      merge:
+        true
+    }
+
+  );
+
+
+  if (
+    attemptId
+  ) {
+
+    batch.set(
+
+      doc(
+        db,
+        "attempts",
+        attemptId
+      ),
+
+      {
+
+        voucherStatus:
+          "expired",
+
+        updatedAt:
+          serverTimestamp()
+
+      },
+
+      {
+        merge:
+          true
+      }
+
+    );
+
+  }
+
+
+  await batch.commit();
+
+}
+
+
+
+function isExpired(value) {
+
+  const date =
+    timestampToDate(
+      value
+    );
+
+
+  if (
+    !date
+  ) {
+    return false;
+  }
+
+
+  return (
+    date.getTime() <
+    Date.now()
+  );
+
+}
+
 
 
 /* =====================================================
@@ -2153,7 +2876,7 @@ async function uploadToDrive({
 }) {
 
   const base64 =
-    await blobToBase64(
+    await fileToBase64(
       file
     );
 
@@ -2168,7 +2891,7 @@ async function uploadToDrive({
 
     mimeType:
       file.type ||
-      "application/octet-stream",
+      "image/jpeg",
 
     base64:
       base64
@@ -2177,7 +2900,9 @@ async function uploadToDrive({
 
 
   await fetch(
+
     MEDIA_BRIDGE_URL,
+
     {
 
       method:
@@ -2187,10 +2912,8 @@ async function uploadToDrive({
         "no-cors",
 
       headers: {
-
         "Content-Type":
           "text/plain;charset=utf-8"
-
       },
 
       body:
@@ -2199,709 +2922,54 @@ async function uploadToDrive({
         )
 
     }
+
   );
 
-
-  return true;
-
 }
+
 
 
 /* =====================================================
-   FILE TO BASE64
+   CAMERA HELPERS
 ===================================================== */
 
-function blobToBase64(
-  blob
-) {
+function chooseRecordingMimeType() {
 
-  return new Promise(
-    (
-      resolve,
-      reject
-    ) => {
+  const types = [
 
-      const reader =
-        new FileReader();
+    "video/mp4",
 
+    "video/webm;codecs=vp9",
 
-      reader.onloadend =
-        () => {
+    "video/webm;codecs=vp8",
 
-          const result =
-            String(
-              reader.result
-            );
+    "video/webm"
+
+  ];
 
 
-          const base64 =
-            result.includes(",")
-
-              ? result.split(",")[1]
-
-              : result;
-
-
-          resolve(
-            base64
-          );
-
-        };
-
-
-      reader.onerror =
-        reject;
-
-
-      reader.readAsDataURL(
-        blob
-      );
-
-    }
-  );
-
-}
-
-
-/* =====================================================
-   FILE NAMES
-===================================================== */
-
-function buildReceiptFileName(
-  attempt,
-  file
-) {
-
-  const extension =
-    getFileExtension(
-      file?.name
-    ) ||
-
-    mimeExtension(
-      file?.type
-    ) ||
-
-    "jpg";
-
-
-  return (
-
-    "RECEIPT_" +
-
-    safeFilePart(
-      attempt.receipt
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      attempt.name
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      attempt.id
-    ) +
-
-    "." +
-
-    extension
-
-  );
-
-}
-
-
-function buildVideoFileName(
-  attempt,
-  blob
-) {
-
-  const extension =
-    mimeExtension(
-      blob.type
-    ) ||
-    "webm";
-
-
-  return (
-
-    "SUCCESS_" +
-
-    safeFilePart(
-      attempt.receipt
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      attempt.name
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      attempt.id
-    ) +
-
-    "." +
-
-    extension
-
-  );
-
-}
-
-
-/* =====================================================
-   ATTEMPT STATUS
-===================================================== */
-
-async function updateAttemptResult(
-  result
-) {
-
-  if (
-    !activeAttempt
+  for (
+    const type of types
   ) {
 
-    return;
+    try {
 
-  }
+      if (
+        MediaRecorder
+          .isTypeSupported(
+            type
+          )
+      ) {
 
+        return type;
 
-  try {
-
-    await setDoc(
-
-      doc(
-        db,
-        "attempts",
-        activeAttempt.id
-      ),
-
-      {
-
-        result:
-          result,
-
-        updatedAt:
-          serverTimestamp()
-
-      },
-
-      {
-        merge:
-          true
       }
-
-    );
-
-
-    await setDoc(
-
-      doc(
-        db,
-        "receipts",
-        activeAttempt.normalizedReceipt
-      ),
-
-      {
-
-        status:
-          "used",
-
-        result:
-          result,
-
-        updatedAt:
-          serverTimestamp()
-
-      },
-
-      {
-        merge:
-          true
-      }
-
-    );
-
-  }
-
-  catch (error) {
-
-    console.error(
-      "Failed to update attempt:",
-      error
-    );
-
-  }
-
-}
-
-
-/* =====================================================
-   7-DAY EXPIRY
-===================================================== */
-
-async function refreshExpiredStatus(
-  voucherRef,
-  voucher
-) {
-
-  if (
-    !voucher ||
-    voucher.status !==
-      "available"
-  ) {
-
-    return;
-
-  }
-
-
-  const expiry =
-    timestampToDate(
-      voucher.expiresAt
-    );
-
-
-  if (
-    expiry &&
-    new Date() > expiry
-  ) {
-
-    await setDoc(
-
-      voucherRef,
-
-      {
-
-        status:
-          "expired",
-
-        expiredAt:
-          serverTimestamp()
-
-      },
-
-      {
-        merge:
-          true
-      }
-
-    );
-
-
-    if (
-      voucher.voucherCode ===
-      localStorage.getItem(
-        "kapirata_last_voucher"
-      )
-    ) {
-
-      clearSavedVoucher();
 
     }
 
-  }
-
-}
-
-
-/* =====================================================
-   DISPLAY VOUCHER
-===================================================== */
-
-function displayVoucher(
-  voucher
-) {
-
-  $("voucherCode")
-    .textContent =
-    voucher.voucherCode ||
-    "—";
-
-
-  const expiry =
-    timestampToDate(
-      voucher.expiresAt
-    );
-
-
-  if (
-    expiry
-  ) {
-
-    $("voucherExpiry")
-      .textContent =
-      `Valid until ${formatDate(expiry)} • 7 days only`;
-
-  }
-
-  else {
-
-    $("voucherExpiry")
-      .textContent =
-      "Valid for 7 days only.";
-
-  }
-
-
-  if (
-    voucher.status ===
-    "redeemed"
-  ) {
-
-    $("voucherStatus")
-      .textContent =
-      "REDEEMED";
-
-
-    $("voucherStatus")
-      .className =
-      "status redeemed";
-
-
-    $("redeemVoucher")
-      .disabled =
-      true;
-
-
-    $("redeemVoucher")
-      .textContent =
-      "USED NA BES ✓";
-
-
-    return;
-
-  }
-
-
-  if (
-    voucher.status ===
-    "expired"
-  ) {
-
-    $("voucherStatus")
-      .textContent =
-      "EXPIRED";
-
-
-    $("voucherStatus")
-      .className =
-      "status redeemed";
-
-
-    $("redeemVoucher")
-      .disabled =
-      true;
-
-
-    $("redeemVoucher")
-      .textContent =
-      "EXPIRED NA BES 😭";
-
-
-    return;
-
-  }
-
-
-  $("voucherStatus")
-    .textContent =
-    "AVAILABLE";
-
-
-  $("voucherStatus")
-    .className =
-    "status available";
-
-
-  $("redeemVoucher")
-    .disabled =
-    false;
-
-
-  $("redeemVoucher")
-    .textContent =
-    "REDEEM ₱10";
-
-}
-
-
-/* =====================================================
-   SAVED VOUCHER
-===================================================== */
-
-function rememberVoucher(
-  code
-) {
-
-  if (
-    !code
-  ) {
-
-    return;
-
-  }
-
-
-  localStorage.setItem(
-    "kapirata_last_voucher",
-    code
-  );
-
-}
-
-
-function clearSavedVoucher() {
-
-  localStorage.removeItem(
-    "kapirata_last_voucher"
-  );
-
-
-  const card =
-    $("savedVoucherCard");
-
-
-  if (
-    card
-  ) {
-
-    card
-      .classList
-      .add(
-        "hidden"
-      );
-
-  }
-
-}
-
-
-/* =====================================================
-   HELPERS
-===================================================== */
-
-function timestampToDate(
-  value
-) {
-
-  if (
-    !value
-  ) {
-
-    return null;
-
-  }
-
-
-  if (
-    typeof value.toDate ===
-    "function"
-  ) {
-
-    return value.toDate();
-
-  }
-
-
-  if (
-    value.seconds
-  ) {
-
-    return new Date(
-      value.seconds *
-      1000
-    );
-
-  }
-
-
-  return new Date(
-    value
-  );
-
-}
-
-
-function formatDate(
-  date
-) {
-
-  return date
-    .toLocaleDateString(
-      "en-PH",
-      {
-
-        year:
-          "numeric",
-
-        month:
-          "short",
-
-        day:
-          "numeric"
-
-      }
-    );
-
-}
-
-
-function normalizeReceipt(
-  value
-) {
-
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9_-]/g,
-      "_"
-    );
-
-}
-
-
-function generateVoucherCode() {
-
-  const date =
-    new Date();
-
-
-  const dateCode =
-
-    `${String(date.getFullYear()).slice(-2)}` +
-
-    `${String(date.getMonth() + 1).padStart(2, "0")}` +
-
-    `${String(date.getDate()).padStart(2, "0")}`;
-
-
-  const random =
-    Math.random()
-      .toString(36)
-      .slice(2, 8)
-      .toUpperCase();
-
-
-  return `KPB-${dateCode}-${random}`;
-
-}
-
-
-function safeFilePart(
-  value
-) {
-
-  return String(
-    value ||
-    "unknown"
-  )
-
-    .trim()
-
-    .replace(
-      /[^a-zA-Z0-9_-]/g,
-      "_"
-    )
-
-    .slice(
-      0,
-      70
-    );
-
-}
-
-
-function getFileExtension(
-  name
-) {
-
-  if (
-    !name ||
-    !name.includes(".")
-  ) {
-
-    return "";
-
-  }
-
-
-  return name
-    .split(".")
-    .pop()
-    .toLowerCase();
-
-}
-
-
-function mimeExtension(
-  mime
-) {
-
-  const value =
-    String(
-      mime ||
-      ""
-    ).toLowerCase();
-
-
-  if (
-    value.includes(
-      "mp4"
-    )
-  ) {
-
-    return "mp4";
-
-  }
-
-
-  if (
-    value.includes(
-      "webm"
-    )
-  ) {
-
-    return "webm";
-
-  }
-
-
-  if (
-    value.includes(
-      "jpeg"
-    )
-  ) {
-
-    return "jpg";
-
-  }
-
-
-  if (
-    value.includes(
-      "png"
-    )
-  ) {
-
-    return "png";
-
-  }
-
-
-  if (
-    value.includes(
-      "heic"
-    )
-  ) {
-
-    return "heic";
+    catch {
+      // continue
+    }
 
   }
 
@@ -2911,144 +2979,106 @@ function mimeExtension(
 }
 
 
-/* =====================================================
-   CAMERA CLEANUP
-===================================================== */
 
-function stopCamera() {
+function startCountdown() {
 
-  if (
-    !stream
-  ) {
-
-    return;
-
-  }
+  clearInterval(
+    timerHandle
+  );
 
 
-  stream
-    .getTracks()
-    .forEach(
-      (track) =>
-        track.stop()
+  let seconds =
+    10;
+
+
+  $("timer")
+    .textContent =
+    "00:10";
+
+
+  timerHandle =
+    setInterval(
+      () => {
+
+        seconds--;
+
+
+        $("timer")
+          .textContent =
+          `00:${String(seconds).padStart(2, "0")}`;
+
+
+        if (
+          seconds <= 0
+        ) {
+
+          clearInterval(
+            timerHandle
+          );
+
+
+          stopRecordingNow();
+
+        }
+
+      },
+      1000
     );
-
-
-  stream =
-    null;
 
 }
 
 
-/* =====================================================
-   RESET
-===================================================== */
 
-$("newGame")
-  .addEventListener(
-    "click",
-    resetGame
-  );
-
-
-$("closeMissed")
-  .addEventListener(
-    "click",
-    resetGame
-  );
-
-
-function resetGame() {
-
-  stopCamera();
-
-
-  activeAttempt =
-    null;
-
-
-  videoBlob =
-    null;
-
-
-  receiptFile =
-    null;
-
-
-  chunks =
-    [];
-
+function stopRecordingNow() {
 
   if (
-    receiptPreviewUrl
+    mediaRecorder &&
+    mediaRecorder.state ===
+      "recording"
   ) {
 
-    URL.revokeObjectURL(
-      receiptPreviewUrl
-    );
+    mediaRecorder.stop();
+
+  }
+
+}
 
 
-    receiptPreviewUrl =
+
+function stopCameraStream() {
+
+  if (
+    cameraStream
+  ) {
+
+    cameraStream
+      .getTracks()
+      .forEach(
+        track => {
+
+          track.stop();
+
+        }
+      );
+
+
+    cameraStream =
       null;
 
   }
 
 
-  $("playerName")
-    .value =
-    "";
+  $("camera")
+    .srcObject =
+    null;
+
+}
 
 
-  $("receiptNumber")
-    .value =
-    "";
 
+function resetCameraUI() {
 
-  $("receiptPhoto")
-    .value =
-    "";
-
-
-  $("receiptPreview")
-    .src =
-    "";
-
-
-  $("receiptPreview")
-    .classList
-    .add(
-      "hidden"
-    );
-
-
-  $("consent")
-    .checked =
-    false;
-
-
-  $("cashierPin")
-    .value =
-    "";
-
-
-  $("voucherLookupName")
-    .value =
-    "";
-
-
-  $("voucherLookupReceipt")
-    .value =
-    "";
-
-
-  $("voucherLookupError")
-    .textContent =
-    "";
-
-
-  $("formError")
-    .textContent =
-    "";
+  stopCameraStream();
 
 
   $("camera")
@@ -3063,6 +3093,18 @@ function resetGame() {
     .add(
       "hidden"
     );
+
+
+  $("cameraMessage")
+    .classList
+    .remove(
+      "hidden"
+    );
+
+
+  $("cameraMessage")
+    .textContent =
+    "Allow camera access to start.";
 
 
   $("enableCamera")
@@ -3090,29 +3132,768 @@ function resetGame() {
     .textContent =
     "00:10";
 
-
-  $("redeemVoucher")
-    .disabled =
-    false;
+}
 
 
-  $("redeemVoucher")
-    .textContent =
-    "REDEEM ₱10";
+
+function cleanupLocalVideoUrl() {
+
+  if (
+    localVideoUrl
+  ) {
+
+    URL.revokeObjectURL(
+      localVideoUrl
+    );
 
 
-  showScreen(
-    "screen-home"
-  );
+    localVideoUrl =
+      null;
 
-
-  checkSavedVoucher();
+  }
 
 }
 
 
+
+function cleanupVideo() {
+
+  stopCameraStream();
+
+
+  clearInterval(
+    timerHandle
+  );
+
+
+  cleanupLocalVideoUrl();
+
+
+  localVideoBlob =
+    null;
+
+
+  recordingChunks =
+    [];
+
+
+  $("playback")
+    .removeAttribute(
+      "src"
+    );
+
+
+  $("cashierPlayback")
+    .removeAttribute(
+      "src"
+    );
+
+}
+
+
+
 /* =====================================================
-   INITIAL CHECK
+   FILE NAMES
 ===================================================== */
 
-checkSavedVoucher();
+function buildReceiptFileName(
+  attempt,
+  file
+) {
+
+  const extension =
+    getImageExtension(
+      file
+    );
+
+
+  return (
+
+    "RECEIPT_" +
+
+    safeFilePart(
+      attempt.receiptNumber
+    ) +
+
+    "_" +
+
+    safeFilePart(
+      attempt.name
+    ) +
+
+    "_" +
+
+    Date.now() +
+
+    "." +
+
+    extension
+
+  );
+
+}
+
+
+
+function buildClaimFileName(
+  voucher,
+  file
+) {
+
+  const extension =
+    getImageExtension(
+      file
+    );
+
+
+  return (
+
+    "CLAIM_" +
+
+    safeFilePart(
+      voucher.voucherCode
+    ) +
+
+    "_" +
+
+    safeFilePart(
+      voucher.receiptNumber
+    ) +
+
+    "_" +
+
+    safeFilePart(
+      voucher.name
+    ) +
+
+    "_" +
+
+    Date.now() +
+
+    "." +
+
+    extension
+
+  );
+
+}
+
+
+
+function getImageExtension(
+  file
+) {
+
+  const type =
+    String(
+      file?.type ||
+      ""
+    ).toLowerCase();
+
+
+  if (
+    type.includes(
+      "png"
+    )
+  ) {
+    return "png";
+  }
+
+
+  if (
+    type.includes(
+      "webp"
+    )
+  ) {
+    return "webp";
+  }
+
+
+  if (
+    type.includes(
+      "heic"
+    ) ||
+    type.includes(
+      "heif"
+    )
+  ) {
+    return "heic";
+  }
+
+
+  return "jpg";
+
+}
+
+
+
+/* =====================================================
+   VOUCHER CODE
+===================================================== */
+
+function generateVoucherCode() {
+
+  const now =
+    new Date();
+
+
+  const datePart =
+
+    String(
+      now.getFullYear()
+    ).slice(-2) +
+
+    String(
+      now.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    ) +
+
+    String(
+      now.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  const randomPart =
+    Math.random()
+      .toString(36)
+      .slice(2, 8)
+      .toUpperCase();
+
+
+  return (
+    "KPB-" +
+    datePart +
+    "-" +
+    randomPart
+  );
+
+}
+
+
+
+/* =====================================================
+   LOCAL STORAGE
+===================================================== */
+
+function saveVoucherLocally(
+  voucher
+) {
+
+  if (
+    !voucher?.voucherCode
+  ) {
+    return;
+  }
+
+
+  try {
+
+    localStorage.setItem(
+
+      "kapirata_last_voucher",
+
+      JSON.stringify({
+
+        voucherCode:
+          voucher.voucherCode,
+
+        name:
+          voucher.name,
+
+        receiptNumber:
+          voucher.receiptNumber,
+
+        status:
+          voucher.status,
+
+        expiresAt:
+          serializeTimestamp(
+            voucher.expiresAt
+          )
+
+      })
+
+    );
+
+  }
+
+  catch (error) {
+
+    console.error(
+      error
+    );
+
+  }
+
+
+  updateSavedVoucherCard();
+
+}
+
+
+
+function readSavedVoucher() {
+
+  try {
+
+    const value =
+      localStorage.getItem(
+        "kapirata_last_voucher"
+      );
+
+
+    if (
+      !value
+    ) {
+      return null;
+    }
+
+
+    return JSON.parse(
+      value
+    );
+
+  }
+
+  catch {
+
+    return null;
+
+  }
+
+}
+
+
+
+function updateSavedVoucherCard() {
+
+  const card =
+    $("savedVoucherCard");
+
+
+  const info =
+    $("savedVoucherInfo");
+
+
+  if (
+    !card ||
+    !info
+  ) {
+    return;
+  }
+
+
+  const saved =
+    readSavedVoucher();
+
+
+  if (
+    !saved ||
+    !saved.voucherCode ||
+    saved.status === "redeemed" ||
+    saved.status === "expired"
+  ) {
+
+    card.classList.add(
+      "hidden"
+    );
+
+
+    return;
+  }
+
+
+  card.classList.remove(
+    "hidden"
+  );
+
+
+  info.textContent =
+    `${saved.voucherCode} • ₱${VOUCHER_AMOUNT} OFF`;
+
+}
+
+
+
+/* =====================================================
+   RESET
+===================================================== */
+
+function resetGame() {
+
+  cleanupVideo();
+
+
+  activeAttempt =
+    null;
+
+
+  activeVoucher =
+    null;
+
+
+  receiptFile =
+    null;
+
+
+  claimPhotoFile =
+    null;
+
+
+  $("playerName").value =
+    "";
+
+
+  $("receiptNumber").value =
+    "";
+
+
+  $("consent").checked =
+    false;
+
+
+  $("receiptPhoto").value =
+    "";
+
+
+  $("claimPhoto").value =
+    "";
+
+
+  $("formError").textContent =
+    "";
+
+
+  $("claimError").textContent =
+    "";
+
+
+  $("pinError").textContent =
+    "";
+
+
+  if (
+    receiptPreviewUrl
+  ) {
+
+    URL.revokeObjectURL(
+      receiptPreviewUrl
+    );
+
+
+    receiptPreviewUrl =
+      null;
+
+  }
+
+
+  if (
+    claimPhotoPreviewUrl
+  ) {
+
+    URL.revokeObjectURL(
+      claimPhotoPreviewUrl
+    );
+
+
+    claimPhotoPreviewUrl =
+      null;
+
+  }
+
+
+  $("receiptPreview")
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  $("claimPhotoPreview")
+    .classList
+    .add(
+      "hidden"
+    );
+
+
+  resetCameraUI();
+
+
+  updateSavedVoucherCard();
+
+}
+
+
+
+/* =====================================================
+   FORMATTERS
+===================================================== */
+
+function formatVoucherExpiry(
+  value
+) {
+
+  const date =
+    timestampToDate(
+      value
+    );
+
+
+  if (
+    !date
+  ) {
+
+    return "Valid for 7 days only.";
+
+  }
+
+
+  return (
+    "Valid until " +
+    date.toLocaleString(
+      "en-PH",
+      {
+        month:
+          "short",
+        day:
+          "numeric",
+        year:
+          "numeric",
+        hour:
+          "numeric",
+        minute:
+          "2-digit"
+      }
+    )
+  );
+
+}
+
+
+
+function timestampToDate(
+  value
+) {
+
+  if (
+    !value
+  ) {
+    return null;
+  }
+
+
+  if (
+    typeof value.toDate ===
+    "function"
+  ) {
+
+    return value.toDate();
+
+  }
+
+
+  if (
+    value.seconds
+  ) {
+
+    return new Date(
+      value.seconds *
+      1000
+    );
+
+  }
+
+
+  const date =
+    new Date(
+      value
+    );
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  return date;
+
+}
+
+
+
+function serializeTimestamp(
+  value
+) {
+
+  const date =
+    timestampToDate(
+      value
+    );
+
+
+  return date
+    ? date.toISOString()
+    : null;
+
+}
+
+
+
+/* =====================================================
+   GENERAL HELPERS
+===================================================== */
+
+function normalizeReceipt(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      ""
+    );
+
+}
+
+
+
+function normalizeName(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .trim()
+    .toLowerCase()
+    .replace(
+      /\s+/g,
+      " "
+    );
+
+}
+
+
+
+function safeFilePart(
+  value
+) {
+
+  return String(
+    value || "UNKNOWN"
+  )
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]+/g,
+      "_"
+    )
+    .replace(
+      /^_+|_+$/g,
+      ""
+    )
+    .slice(
+      0,
+      40
+    ) || "UNKNOWN";
+
+}
+
+
+
+function fileToBase64(
+  file
+) {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const reader =
+        new FileReader();
+
+
+      reader.onload =
+        () => {
+
+          const result =
+            String(
+              reader.result ||
+              ""
+            );
+
+
+          const comma =
+            result.indexOf(
+              ","
+            );
+
+
+          resolve(
+
+            comma >= 0
+              ? result.slice(
+                  comma + 1
+                )
+              : result
+
+          );
+
+        };
+
+
+      reader.onerror =
+        () => {
+
+          reject(
+            reader.error
+          );
+
+        };
+
+
+      reader.readAsDataURL(
+        file
+      );
+
+    }
+  );
+
+}
+
+
+
+/* =====================================================
+   INITIAL LOAD
+===================================================== */
+
+updateSavedVoucherCard();
+
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    stopCameraStream();
+
+    cleanupLocalVideoUrl();
+
+  }
+);
