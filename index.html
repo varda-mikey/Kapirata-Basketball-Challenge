@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#b5161b" />
+  <title>Kapirata Basketball Challenge</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="screen-home" class="screen active">
+      <div class="brand-badge">🏴‍☠️ PIRATES' CAFETERIA</div>
+      <div class="hero-ball">🏀</div>
+      <h1>KAPIRATA<br>BASKETBALL CHALLENGE</h1>
+      <p class="tagline">SHOOT MO, DISCOUNT MO!</p>
+      <div class="reward-card">
+        <span>WIN</span>
+        <strong>₱10 OFF</strong>
+        <small>on your next eligible purchase</small>
+      </div>
+      <button class="btn btn-primary" data-next="screen-form">LARO NA BES!</button>
+      <button class="text-btn" data-next="screen-rules">See mechanics</button>
+    </section>
+
+    <section id="screen-rules" class="screen">
+      <button class="back" data-next="screen-home">← Back</button>
+      <h2>Mechanics</h2>
+      <div class="card rules">
+        <p>🥤 Buy an eligible bottled or canned drink from the Main Canteen.</p>
+        <p>🚫 Bottled water is not included.</p>
+        <p>🧾 Keep your UTAK receipt.</p>
+        <p>📸 Upload a clear photo of the receipt.</p>
+        <p>🏀 You get one 10-second Trashketball attempt per receipt.</p>
+        <p>✅ Successful shots must be validated by the cashier.</p>
+      </div>
+      <button class="btn btn-primary" data-next="screen-form">GAME NA BES!</button>
+    </section>
+
+    <section id="screen-form" class="screen">
+      <button class="back" data-next="screen-home">← Back</button>
+      <h2>Ready ka na?</h2>
+      <p class="muted">Two details lang, bes.</p>
+
+      <label>Name
+        <input id="playerName" maxlength="60" placeholder="Your name" autocomplete="name" />
+      </label>
+
+      <label>UTAK Receipt Number
+        <input id="receiptNumber" maxlength="40" placeholder="e.g. 00012345" />
+      </label>
+
+      <label class="upload-box">
+        <span>📷 Receipt Photo</span>
+        <small>Required • make sure the receipt number is readable</small>
+        <input id="receiptPhoto" type="file" accept="image/*" capture="environment" />
+      </label>
+
+      <img id="receiptPreview" class="preview hidden" alt="Receipt preview" />
+
+      <label class="consent">
+        <input id="consent" type="checkbox" />
+        <span>I agree that my receipt photo and successful challenge video may be stored for promo validation and fraud prevention.</span>
+      </label>
+
+      <button id="continueToCamera" class="btn btn-primary">GAME NA BES!</button>
+      <p id="formError" class="error"></p>
+    </section>
+
+    <section id="screen-camera" class="screen camera-screen">
+      <div class="camera-top">
+        <span class="pill">ONE RECEIPT = ONE SHOT</span>
+        <span id="timer" class="timer">00:10</span>
+      </div>
+
+      <div class="camera-frame">
+        <video id="camera" autoplay playsinline muted></video>
+        <video id="playback" class="hidden" controls playsinline></video>
+        <div id="cameraMessage" class="camera-message">Allow camera access to start.</div>
+      </div>
+
+      <div class="camera-actions">
+        <button id="enableCamera" class="btn btn-secondary">ALLOW CAMERA</button>
+        <button id="startRecording" class="btn btn-record hidden">● START RECORDING</button>
+        <button id="stopRecording" class="btn btn-dark hidden">STOP</button>
+      </div>
+    </section>
+
+    <section id="screen-result" class="screen">
+      <h2>NASHOOT MO BA, BES? 👀</h2>
+      <p class="muted">Be honest—cashier will review the video.</p>
+      <div class="split">
+        <button id="madeShot" class="btn btn-success">✅ OO! NASHOOT KO!</button>
+        <button id="missedShot" class="btn btn-dark">❌ HINDI BES 😭</button>
+      </div>
+    </section>
+
+    <section id="screen-missed" class="screen">
+      <div class="hero-ball">😅</div>
+      <h2>TRY AGAIN BES!</h2>
+      <p>Masho-shoot mo rin 'yan.</p>
+      <p class="muted">New eligible receipt = new attempt.</p>
+      <button id="closeMissed" class="btn btn-primary">CLOSE GAME</button>
+    </section>
+
+    <section id="screen-cashier" class="screen">
+      <div class="confetti">🎉 🏀 🎉</div>
+      <h2>MUKHANG MAY ₱10 KA!</h2>
+      <p>Present this screen and your receipt to the cashier.</p>
+
+      <div class="card summary">
+        <div><span>Name</span><strong id="summaryName">—</strong></div>
+        <div><span>Receipt</span><strong id="summaryReceipt">—</strong></div>
+      </div>
+
+      <video id="cashierPlayback" class="review-video" controls playsinline></video>
+
+      <button id="cashierApprove" class="btn btn-success">YES, NASHOOT NG PIRATA!</button>
+      <button id="cashierReject" class="btn btn-dark">INVALID ATTEMPT</button>
+    </section>
+
+    <section id="screen-pin" class="screen">
+      <h2>Cashier Verification 🔐</h2>
+      <p class="muted">Authorized staff only.</p>
+      <input id="cashierPin" class="pin" type="password" inputmode="numeric" maxlength="8" placeholder="••••" />
+      <button id="verifyPin" class="btn btn-primary">CONFIRM</button>
+      <p id="pinError" class="error"></p>
+      <button class="text-btn" data-next="screen-cashier">← Back to review</button>
+    </section>
+
+    <section id="screen-voucher" class="screen">
+      <div class="confetti">🎉 🎈 🏀 ☠️ 🎉</div>
+      <h2>SWAK! NASHOOT MO!</h2>
+      <div class="voucher">
+        <small>PIRATE VOUCHER</small>
+        <strong>₱10 OFF</strong>
+        <span id="voucherCode">KPB-XXXXXX</span>
+        <span id="voucherStatus" class="status available">AVAILABLE</span>
+      </div>
+      <p class="muted">Keep this screen. Voucher is valid only once.</p>
+      <button id="redeemVoucher" class="btn btn-primary">REDEEM ₱10</button>
+      <button id="newGame" class="text-btn">Start new game</button>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

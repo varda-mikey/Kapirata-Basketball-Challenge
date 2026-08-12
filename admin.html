@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kapirata Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <small>PIRATES' CAFETERIA</small>
+      <h1>Kapirata Admin</h1>
+    </div>
+    <a href="index.html">Open Game ↗</a>
+  </header>
+
+  <main>
+    <section class="stats">
+      <div><span id="totalCount">0</span><small>Attempts</small></div>
+      <div><span id="approvedCount">0</span><small>Approved</small></div>
+      <div><span id="redeemedCount">0</span><small>Redeemed</small></div>
+    </section>
+
+    <section class="toolbar">
+      <input id="search" placeholder="Search name, receipt, voucher..." />
+      <select id="filter">
+        <option value="all">All attempts</option>
+        <option value="approved">Successful</option>
+        <option value="missed">Missed</option>
+        <option value="cashier_rejected">Rejected</option>
+        <option value="redeemed">Redeemed vouchers</option>
+      </select>
+    </section>
+
+    <section>
+      <div class="notice">
+        <strong>MVP preview:</strong> This dashboard currently displays test attempts saved on this browser.
+        When Firebase is connected, this becomes the live admin dashboard for all phones and will include receipt photos and successful videos.
+      </div>
+      <div id="rows" class="rows"></div>
+    </section>
+  </main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
