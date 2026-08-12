@@ -110,11 +110,6 @@ async function loadAttempts() {
     );
 
 
-    /*
-      Fallback for older records
-      without createdAt.
-    */
-
     try {
 
       const fallback =
@@ -143,7 +138,6 @@ async function loadAttempts() {
 
       attempts.sort(
         (a, b) =>
-
           getMillis(
             b.createdAt
           )
@@ -151,7 +145,6 @@ async function loadAttempts() {
           getMillis(
             a.createdAt
           )
-
       );
 
 
@@ -163,9 +156,7 @@ async function loadAttempts() {
 
     }
 
-    catch (
-      secondError
-    ) {
+    catch (secondError) {
 
       console.error(
         secondError
@@ -268,7 +259,7 @@ function render() {
 
 
 /* =============================
-   STATISTICS
+   STATS
 ============================= */
 
 function renderStats() {
@@ -280,37 +271,31 @@ function renderStats() {
   $("approvedCount").textContent =
     attempts.filter(
       (attempt) =>
-
         attempt.result ===
         "approved"
-
     ).length;
 
 
   $("availableCount").textContent =
     attempts.filter(
       (attempt) =>
-
         attempt.voucherStatus ===
         "available"
-
     ).length;
 
 
   $("redeemedCount").textContent =
     attempts.filter(
       (attempt) =>
-
         attempt.voucherStatus ===
         "redeemed"
-
     ).length;
 
 }
 
 
 /* =============================
-   FILTERING
+   FILTER
 ============================= */
 
 function matchFilter(
@@ -355,7 +340,7 @@ function matchFilter(
 
 
 /* =============================
-   DESKTOP TABLE
+   TABLE
 ============================= */
 
 function renderTable(
@@ -621,35 +606,29 @@ function mediaButtons(
     attempt.receiptFileName
   ) {
 
-    const receiptUrl =
-      buildMediaUrl(
-
-        "receipt",
-
-        attempt.receiptFileName
-
-      );
-
-
     html += `
-      <a
-        href="${escapeAttribute(receiptUrl)}"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        class="media-open-btn receipt-open-btn"
+        data-type="receipt"
+        data-name="${escapeAttribute(
+          attempt.receiptFileName
+        )}"
         style="
           display:block;
+          width:100%;
+          border:0;
           text-align:center;
           padding:10px;
           margin:4px 0;
           border-radius:10px;
           background:#ffc928;
           color:#181818;
-          text-decoration:none;
           font-weight:900;
+          cursor:pointer;
         "
       >
         📷 VIEW RECEIPT
-      </a>
+      </button>
     `;
 
   }
@@ -669,36 +648,29 @@ function mediaButtons(
     attempt.successfulVideoFileName
   ) {
 
-    const videoUrl =
-      buildMediaUrl(
-
-        "video",
-
-        attempt
-          .successfulVideoFileName
-
-      );
-
-
     html += `
-      <a
-        href="${escapeAttribute(videoUrl)}"
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        class="media-open-btn video-open-btn"
+        data-type="video"
+        data-name="${escapeAttribute(
+          attempt.successfulVideoFileName
+        )}"
         style="
           display:block;
+          width:100%;
+          border:0;
           text-align:center;
           padding:10px;
           margin:4px 0;
           border-radius:10px;
           background:#181818;
           color:#ffffff;
-          text-decoration:none;
           font-weight:900;
+          cursor:pointer;
         "
       >
         🎥 PLAY VIDEO
-      </a>
+      </button>
     `;
 
   }
@@ -724,16 +696,20 @@ function mediaButtons(
 }
 
 
-function buildMediaUrl(
+/* =============================
+   MEDIA LOOKUP
+============================= */
+
+async function openMedia(
   type,
   fileName
 ) {
 
-  return (
+  const lookupUrl =
 
     MEDIA_BRIDGE_URL +
 
-    "?action=view" +
+    "?action=lookup" +
 
     "&type=" +
     encodeURIComponent(
@@ -743,9 +719,67 @@ function buildMediaUrl(
     "&name=" +
     encodeURIComponent(
       fileName
-    )
+    );
 
-  );
+
+  try {
+
+    const response =
+      await fetch(
+        lookupUrl
+      );
+
+
+    const text =
+      await response.text();
+
+
+    const data =
+      JSON.parse(
+        text
+      );
+
+
+    if (
+      !data.ok
+    ) {
+
+      alert(
+        data.error ||
+        "Media file not found."
+      );
+
+      return;
+
+    }
+
+
+    const targetUrl =
+      type === "video"
+        ? data.previewUrl
+        : data.viewUrl;
+
+
+    window.open(
+      targetUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+  }
+
+  catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    alert(
+      "Could not open the media file."
+    );
+
+  }
 
 }
 
@@ -829,7 +863,7 @@ function voucherBadge(
 
 
 /* =============================
-   DATES
+   DATE HELPERS
 ============================= */
 
 function formatDateTime(
@@ -981,7 +1015,8 @@ function shortId(
 ) {
 
   return String(
-    value || ""
+    value ||
+    ""
   ).slice(
     0,
     8
@@ -1060,6 +1095,38 @@ $("filter").addEventListener(
 $("refreshBtn").addEventListener(
   "click",
   loadAttempts
+);
+
+
+document.addEventListener(
+  "click",
+  (event) => {
+
+    const button =
+      event.target.closest(
+        ".media-open-btn"
+      );
+
+
+    if (!button) {
+      return;
+    }
+
+
+    const type =
+      button.dataset.type;
+
+
+    const fileName =
+      button.dataset.name;
+
+
+    openMedia(
+      type,
+      fileName
+    );
+
+  }
 );
 
 
