@@ -2,9 +2,11 @@ import {
   firebaseConfig
 } from "./firebase-config.js";
 
+
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
 
 import {
   getFirestore,
@@ -15,40 +17,57 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
+/* =====================================================
+   FIREBASE
+===================================================== */
+
 const firebaseApp =
   initializeApp(firebaseConfig);
+
 
 const db =
   getFirestore(firebaseApp);
 
 
+/* =====================================================
+   MEDIA BRIDGE
+===================================================== */
+
 const MEDIA_BRIDGE_URL =
   "https://script.google.com/macros/s/AKfycbzeNPftGOJi_ykQmBtSZWH1ikDpycgjsXo168QmkRclgEZbmqkFMZ4-oNQwX2qPzsls/exec";
 
+
+/* =====================================================
+   STATE
+===================================================== */
 
 const $ = (id) =>
   document.getElementById(id);
 
 
-let attempts = [];
+let attempts =
+  [];
 
 
-/* =========================
-   LOAD
-========================= */
+/* =====================================================
+   LOAD ATTEMPTS
+===================================================== */
 
 async function loadAttempts() {
 
-  $("statusBox").textContent =
+  $("statusBox")
+    .textContent =
     "Loading Kapirata records...";
 
-  $("refreshBtn").disabled =
+
+  $("refreshBtn")
+    .disabled =
     true;
 
 
   try {
 
-    const q =
+    const attemptsQuery =
       query(
         collection(
           db,
@@ -62,19 +81,23 @@ async function loadAttempts() {
 
 
     const snapshot =
-      await getDocs(q);
+      await getDocs(
+        attemptsQuery
+      );
 
 
     attempts =
       snapshot.docs.map(
         item => ({
-          id:item.id,
+          id:
+            item.id,
           ...item.data()
         })
       );
 
 
-    $("statusBox").textContent =
+    $("statusBox")
+      .textContent =
       `Connected • ${attempts.length} attempt(s) loaded`;
 
 
@@ -82,9 +105,12 @@ async function loadAttempts() {
 
   }
 
+
   catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
 
 
     try {
@@ -101,20 +127,26 @@ async function loadAttempts() {
       attempts =
         snapshot.docs.map(
           item => ({
-            id:item.id,
+            id:
+              item.id,
             ...item.data()
           })
         );
 
 
       attempts.sort(
-        (a,b) =>
-          getMillis(b.createdAt) -
-          getMillis(a.createdAt)
+        (a, b) =>
+          getMillis(
+            b.createdAt
+          ) -
+          getMillis(
+            a.createdAt
+          )
       );
 
 
-      $("statusBox").textContent =
+      $("statusBox")
+        .textContent =
         `Connected • ${attempts.length} attempt(s) loaded`;
 
 
@@ -122,20 +154,27 @@ async function loadAttempts() {
 
     }
 
+
     catch (secondError) {
 
-      console.error(secondError);
+      console.error(
+        secondError
+      );
 
-      $("statusBox").textContent =
+
+      $("statusBox")
+        .textContent =
         "Could not load Firebase records.";
 
     }
 
   }
 
+
   finally {
 
-    $("refreshBtn").disabled =
+    $("refreshBtn")
+      .disabled =
       false;
 
   }
@@ -143,9 +182,9 @@ async function loadAttempts() {
 }
 
 
-/* =========================
+/* =====================================================
    RENDER
-========================= */
+===================================================== */
 
 function render() {
 
@@ -167,7 +206,7 @@ function render() {
     attempts.filter(
       attempt => {
 
-        const text =
+        const searchableText =
           [
             attempt.name,
             attempt.receiptNumber,
@@ -175,74 +214,109 @@ function render() {
             attempt.result,
             attempt.voucherStatus
           ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
 
-        return (
-          (!search ||
-            text.includes(search))
-          &&
+        const matchesSearch =
+          !search ||
+          searchableText.includes(
+            search
+          );
+
+
+        const matchesFilter =
           matchFilter(
             attempt,
             filter
-          )
+          );
+
+
+        return (
+          matchesSearch &&
+          matchesFilter
         );
 
       }
     );
 
 
-  renderTable(filtered);
+  renderTable(
+    filtered
+  );
 
-  renderMobileCards(filtered);
+
+  renderMobileCards(
+    filtered
+  );
 
 }
 
 
-/* =========================
-   STATS
-========================= */
+/* =====================================================
+   SUMMARY STATS
+===================================================== */
 
 function renderStats() {
 
-  $("totalCount").textContent =
+  $("totalCount")
+    .textContent =
     attempts.length;
 
 
-  $("approvedCount").textContent =
+  $("approvedCount")
+    .textContent =
     attempts.filter(
-      x =>
-        x.result ===
+      attempt =>
+        attempt.result ===
         "approved"
     ).length;
 
 
-  $("availableCount").textContent =
+  $("availableCount")
+    .textContent =
     attempts.filter(
-      x =>
-        x.voucherStatus ===
+      attempt =>
+        attempt.voucherStatus ===
         "available"
     ).length;
 
 
-  $("redeemedCount").textContent =
+  $("redeemedCount")
+    .textContent =
     attempts.filter(
-      x =>
-        x.voucherStatus ===
+      attempt =>
+        attempt.voucherStatus ===
         "redeemed"
+    ).length;
+
+
+  $("claimPhotoCount")
+    .textContent =
+    attempts.filter(
+      attempt =>
+        Boolean(
+          attempt
+            .claimEvidenceFileName
+        )
     ).length;
 
 }
 
+
+/* =====================================================
+   FILTER
+===================================================== */
 
 function matchFilter(
   attempt,
   filter
 ) {
 
-  if (filter === "all") {
+  if (
+    filter === "all"
+  ) {
     return true;
   }
 
@@ -252,7 +326,9 @@ function matchFilter(
       "available",
       "redeemed",
       "expired"
-    ].includes(filter)
+    ].includes(
+      filter
+    )
   ) {
 
     return (
@@ -271,17 +347,21 @@ function matchFilter(
 }
 
 
-/* =========================
-   TABLE
-========================= */
+/* =====================================================
+   DESKTOP TABLE
+===================================================== */
 
-function renderTable(records) {
+function renderTable(
+  records
+) {
 
   const rows =
     $("attemptRows");
 
 
-  if (!records.length) {
+  if (
+    !records.length
+  ) {
 
     rows.innerHTML = `
       <tr>
@@ -308,7 +388,8 @@ function renderTable(records) {
 
             <strong>
               ${escapeHtml(
-                attempt.name || "—"
+                attempt.name ||
+                "—"
               )}
             </strong>
 
@@ -333,6 +414,10 @@ function renderTable(records) {
               )}
             </strong>
 
+            ${receiptUploadLabel(
+              attempt
+            )}
+
           </td>
 
 
@@ -356,11 +441,15 @@ function renderTable(records) {
               attempt.voucherStatus
             )}
 
+            ${expirySmall(
+              attempt.expiresAt
+            )}
+
           </td>
 
 
           <td>
-            ${mediaButtons(
+            ${evidenceButtons(
               attempt
             )}
           </td>
@@ -374,11 +463,9 @@ function renderTable(records) {
               )}
             </strong>
 
-            <small>
-              ${expiryText(
-                attempt.expiresAt
-              )}
-            </small>
+            ${redeemedSmall(
+              attempt.redeemedAt
+            )}
 
           </td>
 
@@ -389,9 +476,9 @@ function renderTable(records) {
 }
 
 
-/* =========================
-   MOBILE
-========================= */
+/* =====================================================
+   MOBILE CARDS
+===================================================== */
 
 function renderMobileCards(
   records
@@ -401,7 +488,9 @@ function renderMobileCards(
     $("mobileCards");
 
 
-  if (!records.length) {
+  if (
+    !records.length
+  ) {
 
     container.innerHTML = `
       <div class="empty-card">
@@ -417,7 +506,9 @@ function renderMobileCards(
   container.innerHTML =
     records.map(
       attempt => `
-        <article class="attempt-card">
+        <article
+          class="attempt-card"
+        >
 
           <div class="card-head">
 
@@ -488,10 +579,14 @@ function renderMobileCards(
           </div>
 
 
-          <div class="media-box">
-            ${mediaButtons(
+          <div
+            class="media-box"
+          >
+
+            ${evidenceButtons(
               attempt
             )}
+
           </div>
 
         </article>
@@ -501,40 +596,40 @@ function renderMobileCards(
 }
 
 
-/* =========================
-   DIRECT MEDIA LINKS
-   NO FETCH = NO CORS ERROR
-========================= */
+/* =====================================================
+   EVIDENCE BUTTONS
+===================================================== */
 
-function mediaButtons(attempt) {
+function evidenceButtons(
+  attempt
+) {
 
-  let html = "";
+  let html =
+    "";
 
 
   if (
     attempt.receiptFileName
   ) {
 
-    const url =
-      buildViewerUrl(
-        "receipt",
-        attempt.receiptFileName
-      );
-
-
     html += `
       <a
-        href="${escapeAttribute(url)}"
+        href="${escapeAttribute(
+          buildViewerUrl(
+            "receipt",
+            attempt.receiptFileName
+          )
+        )}"
         target="_blank"
         rel="noopener noreferrer"
         style="
           display:block;
           text-align:center;
-          padding:12px;
+          padding:11px;
           margin:4px 0;
-          border-radius:11px;
+          border-radius:10px;
           background:#ffc928;
-          color:#181818;
+          color:#171717;
           text-decoration:none;
           font-weight:900;
         "
@@ -557,34 +652,32 @@ function mediaButtons(attempt) {
 
 
   if (
-    attempt.successfulVideoFileName
+    attempt.claimEvidenceFileName
   ) {
-
-    const url =
-      buildViewerUrl(
-        "video",
-        attempt.successfulVideoFileName
-      );
-
 
     html += `
       <a
-        href="${escapeAttribute(url)}"
+        href="${escapeAttribute(
+          buildViewerUrl(
+            "claim",
+            attempt.claimEvidenceFileName
+          )
+        )}"
         target="_blank"
         rel="noopener noreferrer"
         style="
           display:block;
           text-align:center;
-          padding:12px;
+          padding:11px;
           margin:6px 0 4px;
-          border-radius:11px;
-          background:#181818;
+          border-radius:10px;
+          background:#1f9d55;
           color:white;
           text-decoration:none;
           font-weight:900;
         "
       >
-        🎥 PLAY VIDEO
+        ✅ VIEW CLAIM PHOTO
       </a>
     `;
 
@@ -596,10 +689,15 @@ function mediaButtons(attempt) {
       <small
         style="
           display:block;
-          margin-top:6px;
+          margin-top:7px;
         "
       >
-        No successful video
+        ${
+          attempt.voucherStatus ===
+          "redeemed"
+            ? "Claim photo missing"
+            : "Not claimed yet"
+        }
       </small>
     `;
 
@@ -611,45 +709,51 @@ function mediaButtons(attempt) {
 }
 
 
+/* =====================================================
+   MEDIA VIEW URL
+===================================================== */
+
 function buildViewerUrl(
   type,
   fileName
 ) {
 
   return (
-
     MEDIA_BRIDGE_URL +
-
     "?action=viewer" +
-
     "&type=" +
-    encodeURIComponent(type) +
-
+    encodeURIComponent(
+      type
+    ) +
     "&name=" +
-    encodeURIComponent(fileName)
-
+    encodeURIComponent(
+      fileName
+    )
   );
 
 }
 
 
-/* =========================
-   BADGES
-========================= */
+/* =====================================================
+   RESULT BADGE
+===================================================== */
 
-function resultBadge(result) {
+function resultBadge(
+  result
+) {
 
   const value =
-    result || "unknown";
+    result ||
+    "unknown";
 
 
   const labels = {
 
+    uploading_receipt:
+      "UPLOADING RECEIPT",
+
     started:
       "STARTED",
-
-    uploading_receipt:
-      "UPLOADING",
 
     pending_cashier:
       "PENDING CASHIER",
@@ -661,18 +765,25 @@ function resultBadge(result) {
       "MISSED",
 
     cashier_rejected:
-      "REJECTED"
+      "INVALID"
 
   };
 
 
   return `
     <span
-      class="badge result-${escapeHtml(value)}"
+      class="badge result-${escapeHtml(
+        value
+      )}"
     >
       ${escapeHtml(
         labels[value] ||
-        value.toUpperCase()
+        value
+          .replace(
+            /_/g,
+            " "
+          )
+          .toUpperCase()
       )}
     </span>
   `;
@@ -680,9 +791,17 @@ function resultBadge(result) {
 }
 
 
-function voucherBadge(status) {
+/* =====================================================
+   VOUCHER BADGE
+===================================================== */
 
-  if (!status) {
+function voucherBadge(
+  status
+) {
+
+  if (
+    !status
+  ) {
 
     return `
       <span
@@ -697,7 +816,9 @@ function voucherBadge(status) {
 
   return `
     <span
-      class="badge voucher-${escapeHtml(status)}"
+      class="badge voucher-${escapeHtml(
+        status
+      )}"
     >
       ${escapeHtml(
         status.toUpperCase()
@@ -708,64 +829,176 @@ function voucherBadge(status) {
 }
 
 
-/* =========================
-   DATES
-========================= */
+/* =====================================================
+   SMALL LABELS
+===================================================== */
 
-function formatDateTime(value) {
+function receiptUploadLabel(
+  attempt
+) {
 
-  const date =
-    timestampToDate(value);
+  if (
+    attempt.receiptUploadStatus ===
+    "sent"
+  ) {
 
+    return `
+      <small>
+        Receipt saved
+      </small>
+    `;
 
-  if (!date) {
-    return "—";
   }
 
 
-  return date.toLocaleString(
-    "en-PH",
-    {
-      month:"short",
-      day:"numeric",
-      year:"numeric",
-      hour:"numeric",
-      minute:"2-digit"
-    }
-  );
+  if (
+    attempt.receiptUploadStatus
+  ) {
+
+    return `
+      <small>
+        ${escapeHtml(
+          attempt.receiptUploadStatus
+        )}
+      </small>
+    `;
+
+  }
+
+
+  return "";
 
 }
 
 
-function expiryText(value) {
+function expirySmall(
+  value
+) {
 
   const date =
-    timestampToDate(value);
+    timestampToDate(
+      value
+    );
 
 
-  if (!date) {
+  if (
+    !date
+  ) {
     return "";
   }
 
 
-  return (
-    "Expires " +
-    date.toLocaleDateString(
-      "en-PH",
-      {
-        month:"short",
-        day:"numeric",
-        year:"numeric"
-      }
-    )
-  );
+  return `
+    <small>
+      Expires:
+      ${escapeHtml(
+        date.toLocaleDateString(
+          "en-PH",
+          {
+            month:
+              "short",
+            day:
+              "numeric",
+            year:
+              "numeric"
+          }
+        )
+      )}
+    </small>
+  `;
 
 }
 
 
-function timestampToDate(value) {
+function redeemedSmall(
+  value
+) {
 
-  if (!value) {
+  const date =
+    timestampToDate(
+      value
+    );
+
+
+  if (
+    !date
+  ) {
+    return "";
+  }
+
+
+  return `
+    <small>
+      Redeemed:
+      ${escapeHtml(
+        date.toLocaleString(
+          "en-PH",
+          {
+            month:
+              "short",
+            day:
+              "numeric",
+            hour:
+              "numeric",
+            minute:
+              "2-digit"
+          }
+        )
+      )}
+    </small>
+  `;
+
+}
+
+
+/* =====================================================
+   DATES
+===================================================== */
+
+function formatDateTime(
+  value
+) {
+
+  const date =
+    timestampToDate(
+      value
+    );
+
+
+  if (
+    !date
+  ) {
+    return "—";
+  }
+
+
+  return date
+    .toLocaleString(
+      "en-PH",
+      {
+        month:
+          "short",
+        day:
+          "numeric",
+        year:
+          "numeric",
+        hour:
+          "numeric",
+        minute:
+          "2-digit"
+      }
+    );
+
+}
+
+
+function timestampToDate(
+  value
+) {
+
+  if (
+    !value
+  ) {
     return null;
   }
 
@@ -780,7 +1013,9 @@ function timestampToDate(value) {
   }
 
 
-  if (value.seconds) {
+  if (
+    value.seconds
+  ) {
 
     return new Date(
       value.seconds *
@@ -791,7 +1026,9 @@ function timestampToDate(value) {
 
 
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
 
 
   return Number.isNaN(
@@ -803,10 +1040,15 @@ function timestampToDate(value) {
 }
 
 
-function getMillis(value) {
+function getMillis(
+  value
+) {
 
   const date =
-    timestampToDate(value);
+    timestampToDate(
+      value
+    );
+
 
   return date
     ? date.getTime()
@@ -815,11 +1057,13 @@ function getMillis(value) {
 }
 
 
-/* =========================
+/* =====================================================
    HELPERS
-========================= */
+===================================================== */
 
-function shortId(value) {
+function shortId(
+  value
+) {
 
   return String(
     value || ""
@@ -831,7 +1075,9 @@ function shortId(value) {
 }
 
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
   return String(
     value ?? ""
@@ -840,12 +1086,18 @@ function escapeHtml(value) {
     character => {
 
       const map = {
-        "&":"&amp;",
-        "<":"&lt;",
-        ">":"&gt;",
-        '"':"&quot;",
-        "'":"&#039;"
+        "&":
+          "&amp;",
+        "<":
+          "&lt;",
+        ">":
+          "&gt;",
+        '"':
+          "&quot;",
+        "'":
+          "&#039;"
       };
+
 
       return map[
         character
@@ -857,37 +1109,44 @@ function escapeHtml(value) {
 }
 
 
-function escapeAttribute(value) {
+function escapeAttribute(
+  value
+) {
 
-  return escapeHtml(value);
+  return escapeHtml(
+    value
+  );
 
 }
 
 
-/* =========================
+/* =====================================================
    EVENTS
-========================= */
+===================================================== */
 
-$("search").addEventListener(
-  "input",
-  render
-);
-
-
-$("filter").addEventListener(
-  "change",
-  render
-);
+$("search")
+  .addEventListener(
+    "input",
+    render
+  );
 
 
-$("refreshBtn").addEventListener(
-  "click",
-  loadAttempts
-);
+$("filter")
+  .addEventListener(
+    "change",
+    render
+  );
 
 
-/* =========================
+$("refreshBtn")
+  .addEventListener(
+    "click",
+    loadAttempts
+  );
+
+
+/* =====================================================
    START
-========================= */
+===================================================== */
 
 loadAttempts();
