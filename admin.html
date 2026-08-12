@@ -3,44 +3,227 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kapirata Admin</title>
+  <meta name="theme-color" content="#b5161b" />
+
+  <title>Kapirata Admin Dashboard</title>
+
   <link rel="stylesheet" href="admin.css" />
 </head>
+
 <body>
-  <header>
-    <div>
-      <small>PIRATES' CAFETERIA</small>
-      <h1>Kapirata Admin</h1>
+
+<header class="topbar">
+
+  <div>
+    <small>PIRATES' CAFETERIA</small>
+
+    <h1>
+      Kapirata Admin
+    </h1>
+
+    <p>
+      Basketball Challenge Dashboard
+    </p>
+  </div>
+
+
+  <div class="top-actions">
+
+    <button
+      id="refreshBtn"
+      class="btn yellow"
+    >
+      ↻ Refresh
+    </button>
+
+    <a
+      class="btn dark"
+      href="index.html"
+    >
+      Open Game ↗
+    </a>
+
+  </div>
+
+</header>
+
+
+<main class="dashboard">
+
+
+  <!-- SUMMARY -->
+
+  <section class="stats">
+
+    <div class="stat-card">
+      <span id="totalCount">
+        0
+      </span>
+
+      <small>
+        TOTAL ATTEMPTS
+      </small>
     </div>
-    <a href="index.html">Open Game ↗</a>
-  </header>
 
-  <main>
-    <section class="stats">
-      <div><span id="totalCount">0</span><small>Attempts</small></div>
-      <div><span id="approvedCount">0</span><small>Approved</small></div>
-      <div><span id="redeemedCount">0</span><small>Redeemed</small></div>
-    </section>
 
-    <section class="toolbar">
-      <input id="search" placeholder="Search name, receipt, voucher..." />
-      <select id="filter">
-        <option value="all">All attempts</option>
-        <option value="approved">Successful</option>
-        <option value="missed">Missed</option>
-        <option value="cashier_rejected">Rejected</option>
-        <option value="redeemed">Redeemed vouchers</option>
-      </select>
-    </section>
+    <div class="stat-card">
+      <span id="approvedCount">
+        0
+      </span>
 
-    <section>
-      <div class="notice">
-        <strong>MVP preview:</strong> This dashboard currently displays test attempts saved on this browser.
-        When Firebase is connected, this becomes the live admin dashboard for all phones and will include receipt photos and successful videos.
-      </div>
-      <div id="rows" class="rows"></div>
-    </section>
-  </main>
-  <script type="module" src="admin.js"></script>
+      <small>
+        SUCCESSFUL
+      </small>
+    </div>
+
+
+    <div class="stat-card">
+      <span id="availableCount">
+        0
+      </span>
+
+      <small>
+        AVAILABLE VOUCHERS
+      </small>
+    </div>
+
+
+    <div class="stat-card">
+      <span id="redeemedCount">
+        0
+      </span>
+
+      <small>
+        REDEEMED
+      </small>
+    </div>
+
+  </section>
+
+
+  <!-- CONTROLS -->
+
+  <section class="toolbar">
+
+    <input
+      id="search"
+      type="search"
+      placeholder="Search name, receipt, voucher..."
+    />
+
+
+    <select id="filter">
+
+      <option value="all">
+        All attempts
+      </option>
+
+      <option value="approved">
+        Successful
+      </option>
+
+      <option value="pending_cashier">
+        Pending cashier
+      </option>
+
+      <option value="missed">
+        Missed
+      </option>
+
+      <option value="cashier_rejected">
+        Cashier rejected
+      </option>
+
+      <option value="available">
+        Available voucher
+      </option>
+
+      <option value="redeemed">
+        Redeemed voucher
+      </option>
+
+      <option value="expired">
+        Expired voucher
+      </option>
+
+    </select>
+
+  </section>
+
+
+  <!-- STATUS -->
+
+  <section
+    id="statusBox"
+    class="notice"
+  >
+    Connecting to Firebase...
+  </section>
+
+
+  <!-- DESKTOP TABLE -->
+
+  <section class="table-wrap">
+
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>
+            Student
+          </th>
+
+          <th>
+            Receipt
+          </th>
+
+          <th>
+            Result
+          </th>
+
+          <th>
+            Voucher
+          </th>
+
+          <th>
+            Media
+          </th>
+
+          <th>
+            Date
+          </th>
+
+        </tr>
+
+      </thead>
+
+
+      <tbody
+        id="attemptRows"
+      ></tbody>
+
+    </table>
+
+  </section>
+
+
+  <!-- MOBILE CARDS -->
+
+  <section
+    id="mobileCards"
+    class="mobile-cards"
+  ></section>
+
+
+</main>
+
+
+<script
+  type="module"
+  src="admin.js"
+></script>
+
 </body>
 </html>
