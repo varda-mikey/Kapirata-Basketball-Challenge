@@ -14,47 +14,49 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-/* =========================
+/* =====================================================
    FIREBASE
-========================= */
+===================================================== */
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 
-/* =========================
-   GOOGLE DRIVE BRIDGE
-========================= */
+/* =====================================================
+   GOOGLE DRIVE MEDIA BRIDGE
+===================================================== */
 
 const MEDIA_BRIDGE_URL =
   "https://script.google.com/macros/s/AKfycbx5LzmQI9kGWfYAzUDK0v9vzaYbbt6C1dhlw5j2hK92CYyA7s7qzGui7Iq2FLIRYx0h/exec";
 
 
-/* =========================
+/* =====================================================
    APP STATE
-========================= */
+===================================================== */
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+  document.getElementById(id);
 
-const screens = [
-  ...document.querySelectorAll(".screen")
-];
+const screens =
+  [...document.querySelectorAll(".screen")];
 
 let stream = null;
 let recorder = null;
 let chunks = [];
+
 let videoBlob = null;
 
 let receiptFile = null;
 let receiptPreviewUrl = null;
 
 let activeAttempt = null;
+
 let timerHandle = null;
 
 
-/* =========================
-   SCREEN NAVIGATION
-========================= */
+/* =====================================================
+   NAVIGATION
+===================================================== */
 
 function showScreen(id) {
 
@@ -90,9 +92,9 @@ document
   });
 
 
-/* =========================
+/* =====================================================
    RECEIPT PHOTO
-========================= */
+===================================================== */
 
 $("receiptPhoto").addEventListener(
   "change",
@@ -151,9 +153,9 @@ $("receiptPhoto").addEventListener(
 );
 
 
-/* =========================
+/* =====================================================
    START GAME
-========================= */
+===================================================== */
 
 $("continueToCamera").addEventListener(
   "click",
@@ -272,12 +274,6 @@ $("continueToCamera").addEventListener(
         receiptFileName;
 
 
-      /*
-       Create database record first
-       so the same receipt cannot
-       immediately be reused.
-      */
-
       await setDoc(
 
         doc(
@@ -349,15 +345,6 @@ $("continueToCamera").addEventListener(
       $("formError").textContent =
         "Uploading receipt...";
 
-
-      /*
-       Upload to Google Drive.
-
-       Apps Script ContentService redirects
-       its browser response. We intentionally
-       use no-cors and do not try to read
-       the returned JSON.
-      */
 
       await uploadToDrive({
 
@@ -463,9 +450,15 @@ $("continueToCamera").addEventListener(
 );
 
 
-/* =========================
-   CAMERA
-========================= */
+/* =====================================================
+   CAMERA — LOW FILE SIZE MODE
+
+   480 x 270
+   12 FPS
+   NO AUDIO
+
+   Designed only for proof / review.
+===================================================== */
 
 $("enableCamera").addEventListener(
   "click",
@@ -483,12 +476,38 @@ $("enableCamera").addEventListener(
               facingMode: {
                 ideal:
                   "environment"
+              },
+
+              width: {
+                ideal:
+                  480
+              },
+
+              height: {
+                ideal:
+                  270
+              },
+
+              frameRate: {
+                ideal:
+                  12,
+
+                max:
+                  15
               }
 
             },
 
+            /*
+             Audio intentionally OFF.
+
+             We only need visual proof
+             that the bottle/can entered
+             the Trashketball.
+            */
+
             audio:
-              true
+              false
 
           });
 
@@ -527,9 +546,9 @@ $("enableCamera").addEventListener(
 );
 
 
-/* =========================
-   RECORD VIDEO
-========================= */
+/* =====================================================
+   START RECORDING
+===================================================== */
 
 $("startRecording").addEventListener(
   "click",
@@ -546,22 +565,67 @@ $("startRecording").addEventListener(
       null;
 
 
+    /*
+      Prefer efficient browser formats.
+    */
+
+    const preferredTypes = [
+
+      "video/webm;codecs=vp8",
+
+      "video/webm",
+
+      "video/mp4"
+
+    ];
+
+
     const preferred =
-      [
+      preferredTypes.find(
+        (type) => {
 
-        "video/webm;codecs=vp8,opus",
+          try {
 
-        "video/webm",
+            return MediaRecorder
+              .isTypeSupported(
+                type
+              );
 
-        "video/mp4"
+          }
 
-      ].find(
-        (type) =>
-          MediaRecorder
-            .isTypeSupported?.(
-              type
-            )
+          catch {
+
+            return false;
+
+          }
+
+        }
       );
+
+
+    /*
+      VERY LOW BITRATE.
+
+      Around 250 kbps.
+
+      10 seconds should normally stay
+      well below 1 MB.
+    */
+
+    const recorderOptions = {
+
+      videoBitsPerSecond:
+        250000
+
+    };
+
+
+    if (preferred) {
+
+      recorderOptions.mimeType =
+        preferred;
+
+    }
 
 
     try {
@@ -569,27 +633,18 @@ $("startRecording").addEventListener(
       recorder =
         new MediaRecorder(
           stream,
-          {
-
-            ...(preferred
-              ? {
-                  mimeType:
-                    preferred
-                }
-              : {}),
-
-            videoBitsPerSecond:
-              1500000,
-
-            audioBitsPerSecond:
-              64000
-
-          }
+          recorderOptions
         );
 
     }
 
-    catch {
+    catch (error) {
+
+      console.warn(
+        "Low bitrate settings unsupported. Using browser default.",
+        error
+      );
+
 
       recorder =
         new MediaRecorder(
@@ -603,7 +658,8 @@ $("startRecording").addEventListener(
       (event) => {
 
         if (
-          event.data?.size
+          event.data &&
+          event.data.size > 0
         ) {
 
           chunks.push(
@@ -629,6 +685,23 @@ $("startRecording").addEventListener(
 
             }
           );
+
+
+        /*
+          Show approximate size
+          in browser console.
+
+          Useful while testing.
+        */
+
+        console.log(
+          "Kapirata video size:",
+          (
+            videoBlob.size /
+            1024
+          ).toFixed(1),
+          "KB"
+        );
 
 
         const videoUrl =
@@ -684,7 +757,7 @@ $("startRecording").addEventListener(
 
 
     recorder.start(
-      250
+      500
     );
 
 
@@ -740,6 +813,10 @@ $("startRecording").addEventListener(
 );
 
 
+/* =====================================================
+   MANUAL STOP
+===================================================== */
+
 $("stopRecording").addEventListener(
   "click",
   () => {
@@ -757,9 +834,9 @@ $("stopRecording").addEventListener(
 );
 
 
-/* =========================
+/* =====================================================
    MISSED
-========================= */
+===================================================== */
 
 $("missedShot").addEventListener(
   "click",
@@ -789,9 +866,9 @@ $("missedShot").addEventListener(
 );
 
 
-/* =========================
+/* =====================================================
    STUDENT SAYS SUCCESS
-========================= */
+===================================================== */
 
 $("madeShot").addEventListener(
   "click",
@@ -836,9 +913,9 @@ $("madeShot").addEventListener(
 );
 
 
-/* =========================
+/* =====================================================
    CASHIER REJECT
-========================= */
+===================================================== */
 
 $("cashierReject").addEventListener(
   "click",
@@ -864,9 +941,9 @@ $("cashierReject").addEventListener(
 );
 
 
-/* =========================
-   CASHIER APPROVE
-========================= */
+/* =====================================================
+   CASHIER APPROVAL
+===================================================== */
 
 $("cashierApprove").addEventListener(
   "click",
@@ -880,21 +957,15 @@ $("cashierApprove").addEventListener(
 );
 
 
-/* =========================
-   CASHIER PIN + VIDEO SAVE
-========================= */
+/* =====================================================
+   CASHIER PIN
+   SAVE SUCCESSFUL VIDEO
+   CREATE VOUCHER
+===================================================== */
 
 $("verifyPin").addEventListener(
   "click",
   async () => {
-
-    /*
-      Temporary MVP PIN.
-
-      Later we should move this out
-      of GitHub and into a secure
-      cashier/admin system.
-    */
 
     const DEMO_PIN =
       "0953";
@@ -931,8 +1002,19 @@ $("verifyPin").addEventListener(
       true;
 
 
+    /*
+      Show upload size to cashier.
+    */
+
+    const sizeKB =
+      Math.round(
+        videoBlob.size /
+        1024
+      );
+
+
     $("verifyPin").textContent =
-      "SAVING VIDEO...";
+      `SAVING VIDEO (${sizeKB} KB)...`;
 
 
     try {
@@ -947,10 +1029,6 @@ $("verifyPin").addEventListener(
       activeAttempt.videoFileName =
         videoFileName;
 
-
-      /*
-       Upload successful video only.
-      */
 
       await uploadToDrive({
 
@@ -1022,6 +1100,9 @@ $("verifyPin").addEventListener(
           successfulVideoFileName:
             videoFileName,
 
+          successfulVideoSizeKB:
+            sizeKB,
+
           videoUploadStatus:
             "sent",
 
@@ -1075,8 +1156,7 @@ $("verifyPin").addEventListener(
             activeAttempt.receipt,
 
           normalizedReceipt:
-            activeAttempt
-              .normalizedReceipt,
+            activeAttempt.normalizedReceipt,
 
           amount:
             10,
@@ -1102,8 +1182,7 @@ $("verifyPin").addEventListener(
         doc(
           db,
           "receipts",
-          activeAttempt
-            .normalizedReceipt
+          activeAttempt.normalizedReceipt
         ),
 
         {
@@ -1163,7 +1242,7 @@ $("verifyPin").addEventListener(
 
 
       $("pinError").textContent =
-        "Could not save the video or create the voucher. Please try again.";
+        "Could not save successful video or create voucher. Please try again.";
 
     }
 
@@ -1182,9 +1261,9 @@ $("verifyPin").addEventListener(
 );
 
 
-/* =========================
-   MY VOUCHER LOOKUP
-========================= */
+/* =====================================================
+   MY VOUCHER
+===================================================== */
 
 $("findVoucher").addEventListener(
   "click",
@@ -1414,9 +1493,9 @@ $("findVoucher").addEventListener(
 );
 
 
-/* =========================
-   REDEEM VOUCHER
-========================= */
+/* =====================================================
+   REDEEM
+===================================================== */
 
 $("redeemVoucher").addEventListener(
   "click",
@@ -1498,10 +1577,6 @@ $("redeemVoucher").addEventListener(
         );
 
 
-        alert(
-          "Expired na bes. This voucher can no longer be redeemed."
-        );
-
         return;
 
       }
@@ -1526,13 +1601,13 @@ $("redeemVoucher").addEventListener(
       }
 
 
-      const confirmation =
+      const confirmRedeem =
         confirm(
           "Cashier: redeem this ₱10 voucher now? This cannot be undone."
         );
 
 
-      if (!confirmation) {
+      if (!confirmRedeem) {
         return;
       }
 
@@ -1621,9 +1696,9 @@ $("redeemVoucher").addEventListener(
 );
 
 
-/* =========================
-   DRIVE UPLOAD
-========================= */
+/* =====================================================
+   GOOGLE DRIVE UPLOAD
+===================================================== */
 
 async function uploadToDrive({
   type,
@@ -1654,19 +1729,6 @@ async function uploadToDrive({
 
   };
 
-
-  /*
-   IMPORTANT:
-
-   Apps Script redirects ContentService
-   responses to googleusercontent.com.
-
-   mode:"no-cors" prevents the browser
-   from treating that redirect as an error.
-
-   We intentionally do NOT read the
-   response body.
-  */
 
   await fetch(
     MEDIA_BRIDGE_URL,
@@ -1699,11 +1761,13 @@ async function uploadToDrive({
 }
 
 
-/* =========================
-   FILE → BASE64
-========================= */
+/* =====================================================
+   BLOB TO BASE64
+===================================================== */
 
-function blobToBase64(blob) {
+function blobToBase64(
+  blob
+) {
 
   return new Promise(
     (
@@ -1753,9 +1817,9 @@ function blobToBase64(blob) {
 }
 
 
-/* =========================
-   RECEIPT FILENAME
-========================= */
+/* =====================================================
+   FILE NAMES
+===================================================== */
 
 function buildReceiptFileName(
   attempt,
@@ -1803,10 +1867,6 @@ function buildReceiptFileName(
 }
 
 
-/* =========================
-   VIDEO FILENAME
-========================= */
-
 function buildVideoFileName(
   attempt,
   blob
@@ -1848,9 +1908,9 @@ function buildVideoFileName(
 }
 
 
-/* =========================
-   UPDATE ATTEMPT
-========================= */
+/* =====================================================
+   ATTEMPT UPDATE
+===================================================== */
 
 async function updateAttemptResult(
   result
@@ -1894,8 +1954,7 @@ async function updateAttemptResult(
       doc(
         db,
         "receipts",
-        activeAttempt
-          .normalizedReceipt
+        activeAttempt.normalizedReceipt
       ),
 
       {
@@ -1932,9 +1991,9 @@ async function updateAttemptResult(
 }
 
 
-/* =========================
-   EXPIRY CHECK
-========================= */
+/* =====================================================
+   EXPIRY
+===================================================== */
 
 async function refreshExpiredStatus(
   voucherRef,
@@ -1989,9 +2048,9 @@ async function refreshExpiredStatus(
 }
 
 
-/* =========================
+/* =====================================================
    DISPLAY VOUCHER
-========================= */
+===================================================== */
 
 function displayVoucher(
   voucher
@@ -2093,9 +2152,9 @@ function displayVoucher(
 }
 
 
-/* =========================
+/* =====================================================
    HELPERS
-========================= */
+===================================================== */
 
 function timestampToDate(
   value
@@ -2221,7 +2280,8 @@ function safeFilePart(
 ) {
 
   return String(
-    value || "unknown"
+    value ||
+    "unknown"
   )
 
     .trim()
@@ -2267,7 +2327,8 @@ function mimeExtension(
 
   const value =
     String(
-      mime || ""
+      mime ||
+      ""
     ).toLowerCase();
 
 
@@ -2321,9 +2382,9 @@ function mimeExtension(
 }
 
 
-/* =========================
+/* =====================================================
    CAMERA CLEANUP
-========================= */
+===================================================== */
 
 function stopCamera() {
 
@@ -2346,9 +2407,9 @@ function stopCamera() {
 }
 
 
-/* =========================
+/* =====================================================
    RESET
-========================= */
+===================================================== */
 
 $("newGame").addEventListener(
   "click",
