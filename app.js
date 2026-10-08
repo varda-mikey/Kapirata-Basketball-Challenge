@@ -929,6 +929,7 @@ $("startRecording")
 
           $("cashierPlayback").src =
             localVideoUrl;
+          $("challengeReplay").src = localVideoUrl;
 
 
           $("camera")
@@ -1887,11 +1888,8 @@ function displayVoucher(voucher) {
     `status ${status}`;
 
 
-  $("voucherExpiry")
-    .textContent =
-    formatVoucherExpiry(
-      voucher.expiresAt
-    );
+  $("voucherExpiry").className = "voucher-expiry" + (status === "expired" ? " expired" : "");
+  $("voucherExpiry").textContent = (status === "expired" ? "EXPIRED — " : "") + formatVoucherExpiry(voucher.expiresAt);
 
 
   if (
@@ -2037,9 +2035,8 @@ $("redeemVoucher")
         "—";
 
 
-      showScreen(
-        "screen-claim-photo"
-      );
+      $("claimExpiry").textContent = formatVoucherExpiry(activeVoucher.expiresAt);
+      showScreen("screen-claim-photo");
 
     }
   );
@@ -3155,6 +3152,9 @@ function cleanupLocalVideoUrl() {
 
 
 function cleanupVideo() {
+  $("challengeReplay").pause();
+  $("challengeReplay").removeAttribute("src");
+  $("challengeReplay").load();
 
   stopCameraStream();
 
@@ -3652,7 +3652,7 @@ function formatVoucherExpiry(
 
 
   return (
-    "Valid until " +
+    "EXPIRES: " +
     date.toLocaleString(
       "en-PH",
       {
@@ -3665,9 +3665,11 @@ function formatVoucherExpiry(
         hour:
           "numeric",
         minute:
-          "2-digit"
+          "2-digit",
+        timeZone: "Asia/Manila"
       }
     )
+ + " (Philippine time)"
   );
 
 }
@@ -3989,6 +3991,7 @@ pendingVideo('get').then(async pending => {
   localVideoUrl = URL.createObjectURL(localVideoBlob);
   $("playback").src = localVideoUrl;
   $("cashierPlayback").src = localVideoUrl;
+  $("challengeReplay").src = localVideoUrl;
   showScreen('screen-result');
   await autoSaveVideo();
 }).catch(error => console.warn('Could not restore local video backup', error));

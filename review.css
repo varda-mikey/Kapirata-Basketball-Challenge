@@ -1,0 +1,9 @@
+.cashier-notice { color:#b5161b; background:#fff0f0; border:3px solid #b5161b; border-radius:16px; padding:18px; margin:18px 0; font-size:18px; font-weight:800; text-align:center; }
+.btn.cashier-show { color:#b5161b; background:#fff; border:3px solid #b5161b; font-size:clamp(20px,5vw,28px); font-weight:900; padding:22px 16px; line-height:1.25; width:100%; }
+.btn.cashier-show:disabled { opacity:.5; }
+.voucher-terms { background:#fff; border:2px solid #b5161b; border-radius:16px; padding:18px; margin:18px 0; text-align:left; }
+.voucher-terms h3 { color:#b5161b; margin:0 0 12px; }
+.voucher-terms ul { padding-left:22px; line-height:1.6; }
+.voucher-no-stack { color:#b5161b; font-weight:900; border-top:1px solid #e4cccc; padding-top:12px; }
+.voucher-expiry { color:#a70d15; background:#fff0f0; border:3px solid #b5161b; border-radius:14px; padding:18px; font-size:20px; font-weight:900; text-align:center; line-height:1.45; }
+.voucher-expiry.expired { color:white; background:#b5161b; }

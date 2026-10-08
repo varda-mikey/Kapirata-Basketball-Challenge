@@ -22,6 +22,7 @@
     rel="stylesheet"
     href="styles.css"
   >
+  <link rel="stylesheet" href="review.css?v=20261008-cashier">
 </head>
 
 
@@ -158,7 +159,7 @@
       </p>
 
       <p>
-        🎟️ Winning voucher is valid for 7 days and can only be used once.
+        🎟️ Winning voucher is valid for 7 days and can only be used once. It applies only to bottled/canned beverages (excluding bottled water), Pirates’ Café items priced ₱100 and above, baconsilog, and beef viands. It cannot be combined with another discount or promo.
       </p>
 
       <p>
@@ -431,12 +432,12 @@
 
 
     <h2>
-      NASHOOT MO BA, BES?
+      CHALLENGE REPLAY
     </h2>
 
 
     <p class="muted">
-      Be honest — cashier will watch the replay.
+      Show your replay to the cashier. The cashier will confirm whether the shot went in.
     </p>
 
 
@@ -446,24 +447,16 @@
       <a id="downloadVideoBackup" class="text-btn" hidden>Download video backup</a>
     </div>
 
-    <div class="split">
+    <video id="challengeReplay" class="review-video" controls playsinline></video>
 
-      <button
-        id="madeShot"
-        class="btn btn-success"
-      >
-        ✅ OO! NASHOOT KO!
-      </button>
-
-
-      <button
-        id="missedShot"
-        class="btn btn-dark"
-      >
-        ❌ HINDI BES 😭
-      </button>
-
+    <div class="cashier-notice">
+      CASHIER CONFIRMATION REQUIRED<br>
+      Cashier lang ang magko-confirm kung nashoot o hindi.
     </div>
+
+    <button id="madeShot" class="btn cashier-show" disabled>
+      SHOW THIS TO THE CASHIER
+    </button>
 
   </section>
 
@@ -534,7 +527,7 @@
 
 
     <p class="muted">
-      Cashier: watch the full replay before confirming.
+      CASHIER ONLY: Watch the full replay, then confirm whether the shot went in.
     </p>
 
 
@@ -570,8 +563,8 @@
 
 
 
-    <div class="review-label">
-      🎥 CHALLENGE REPLAY
+    <div class="review-label cashier-notice">
+      🎥 CASHIER: REVIEW THE CHALLENGE REPLAY
     </div>
 
 
@@ -588,15 +581,19 @@
       id="cashierApprove"
       class="btn btn-success"
     >
-      ✅ YES, NASHOOT NG PIRATA!
+      ✅ CASHIER CONFIRMS: NASHOOT!
     </button>
 
+
+    <button id="missedShot" class="btn btn-dark" disabled>
+      ❌ CASHIER CONFIRMS: HINDI NASHOOT
+    </button>
 
     <button
       id="cashierReject"
       class="btn btn-dark"
     >
-      ❌ INVALID ATTEMPT
+      ❌ CASHIER: INVALID ATTEMPT
     </button>
 
   </section>
@@ -720,12 +717,25 @@
 
     <p
       id="voucherExpiry"
-      class="muted"
+      class="voucher-expiry"
+      role="status"
     >
       Valid for 7 days only.
     </p>
 
 
+
+    <div class="voucher-terms">
+      <h3>₱10 VOUCHER — APPLICABLE ONLY TO:</h3>
+      <ul>
+        <li><strong>BEVERAGES:</strong> bottled and canned drinks (excluding bottled water)</li>
+        <li><strong>PIRATES’ CAFÉ:</strong> items priced ₱100 and above</li>
+        <li><strong>BACONSILOG</strong></li>
+        <li><strong>BEEF VIANDS</strong></li>
+      </ul>
+      <p class="voucher-no-stack">CANNOT BE COMBINED WITH ANY OTHER DISCOUNT OR PROMO.</p>
+      <p>One-time use only. Valid for 7 days from issuance. Claim before the expiry date and time shown.</p>
+    </div>
 
     <div class="voucher-warning">
       ⚠️ Do not press redeem until you are already at the cashier.
@@ -778,10 +788,24 @@
 
 
     <p class="muted">
-      Cashier: take one clear photo as proof of voucher redemption.
+      Cashier: confirm that the purchase is eligible and no other discount or promo is applied, then take one clear claim photo.
     </p>
 
 
+
+    <p id="claimExpiry" class="voucher-expiry"></p>
+
+    <div class="voucher-terms">
+      <h3>₱10 VOUCHER — APPLICABLE ONLY TO:</h3>
+      <ul>
+        <li><strong>BEVERAGES:</strong> bottled and canned drinks (excluding bottled water)</li>
+        <li><strong>PIRATES’ CAFÉ:</strong> items priced ₱100 and above</li>
+        <li><strong>BACONSILOG</strong></li>
+        <li><strong>BEEF VIANDS</strong></li>
+      </ul>
+      <p class="voucher-no-stack">CANNOT BE COMBINED WITH ANY OTHER DISCOUNT OR PROMO.</p>
+      <p>One-time use only. Valid for 7 days from issuance. Claim before the expiry date and time shown.</p>
+    </div>
 
     <div class="card claim-info">
 
@@ -1034,7 +1058,7 @@
 
 <script
   type="module"
-  src="app.js?v=20261008-video5"
+  src="app.js?v=20261008-cashier"
 ></script>
 
 </body>
