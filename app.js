@@ -1,3 +1,5 @@
+import {commitClaim} from "./claim-store.js";
+import {optimizePhoto} from "./photo-tools.js";
 import {VIDEO_SECONDS, VIDEO_BITRATE, VIDEO_FPS, VIDEO_LONG_EDGE, VIDEO_MAX_BYTES, videoPayload, pendingVideo} from "./video-store.js";
 import {
   firebaseConfig
@@ -13,7 +15,8 @@ import {
   getFirestore,
   doc,
   setDoc,
-  getDoc,
+  getDocFromServer as getDoc,
+  runTransaction,
   serverTimestamp,
   Timestamp,
   writeBatch
@@ -97,12 +100,7 @@ let receiptPreviewUrl =
   null;
 
 
-let claimPhotoFile =
-  null;
 
-
-let claimPhotoPreviewUrl =
-  null;
 
 
 let activeAttempt =
@@ -216,13 +214,13 @@ function createSavedVoucherCard() {
         line-height:1.05;
       "
     >
-      MAY VOUCHER KA PA!
+      REMEMBER: MAY VOUCHER KA PA!
     </strong>
 
     <small
       id="savedVoucherInfo"
     >
-      Checking voucher...
+      Scan again on this phone to continue. Not redeemed until final confirmation.
     </small>
 
     <button
@@ -230,7 +228,7 @@ function createSavedVoucherCard() {
       class="btn btn-dark"
       style="margin-top:14px;"
     >
-      OPEN MY VOUCHER
+      CONTINUE CLAIMING MY VOUCHER
     </button>
   `;
 
@@ -270,78 +268,35 @@ createSavedVoucherCard();
    RECEIPT PHOTO
 ===================================================== */
 
-$("receiptPhoto")
-  .addEventListener(
-    "change",
-    event => {
-
-      const file =
-        event.target.files?.[0];
-
-
-      if (!file) {
-        return;
-      }
-
-
-      if (
-        file.size >
-        8 * 1024 * 1024
-      ) {
-
-        $("formError")
-          .textContent =
-          "Receipt photo is too large. Please use a photo under 8 MB.";
-
-
-        event.target.value =
-          "";
-
-
-        return;
-      }
-
-
-      receiptFile =
-        file;
-
-
-      if (
-        receiptPreviewUrl
-      ) {
-
-        URL.revokeObjectURL(
-          receiptPreviewUrl
-        );
-
-      }
-
-
-      receiptPreviewUrl =
-        URL.createObjectURL(
-          file
-        );
-
-
-      $("receiptPreview").src =
-        receiptPreviewUrl;
-
-
-      $("receiptPreview")
-        .classList
-        .remove(
-          "hidden"
-        );
-
-
-      $("formError")
-        .textContent =
-        "";
-
+let receiptPreparing = false;
+let receiptSelection = 0;
+async function prepareReceiptPhoto(event) {
+  const token = ++receiptSelection;
+  receiptFile = null;
+  receiptPreparing = true;
+  $('continueToCamera').disabled = true;
+  $('formError').textContent = 'Preparing a smaller, clear receipt photo…';
+  try {
+    const file = event.target.files?.[0];
+    if (!file) { $('formError').textContent = ''; return; }
+    const optimized = await optimizePhoto(file, 'receipt');
+    if (token !== receiptSelection) return;
+    receiptFile = optimized;
+    if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+    receiptPreviewUrl = URL.createObjectURL(optimized);
+    $('receiptPreview').src = receiptPreviewUrl;
+    $('receiptPreview').classList.remove('hidden');
+    $('formError').textContent = `Receipt ready • ${Math.ceil(optimized.size / 1024)} KB. Check that details are readable before continuing.`;
+  } catch (error) {
+    if (token === receiptSelection) $('formError').textContent = error.message;
+  } finally {
+    if (token === receiptSelection) {
+      receiptPreparing = false;
+      $('continueToCamera').disabled = false;
     }
-  );
-
-
+  }
+}
+$('receiptPhoto').addEventListener('change', prepareReceiptPhoto);
 
 /* =====================================================
    START ATTEMPT
@@ -351,6 +306,7 @@ $("continueToCamera")
   .addEventListener(
     "click",
     async () => {
+      if (receiptPreparing) return;
 
       const name =
         $("playerName")
@@ -1853,6 +1809,7 @@ async function openSavedVoucher() {
 ===================================================== */
 
 function displayVoucher(voucher) {
+  saveVoucherLocally(voucher);
 
   $("voucherCode")
     .textContent =
@@ -1978,40 +1935,8 @@ $("redeemVoucher")
       }
 
 
-      claimPhotoFile =
-        null;
-
-
-      if (
-        claimPhotoPreviewUrl
-      ) {
-
-        URL.revokeObjectURL(
-          claimPhotoPreviewUrl
-        );
-
-
-        claimPhotoPreviewUrl =
-          null;
-
-      }
-
-
-      $("claimPhoto").value =
-        "";
-
-
-      $("claimPhotoPreview")
-        .classList
-        .add(
-          "hidden"
-        );
-
-
-      $("confirmClaimPhoto")
-        .disabled =
-        true;
-
+      saveVoucherLocally(activeVoucher);
+      $('confirmClaimPhoto').disabled = false;
 
       $("claimError")
         .textContent =
@@ -2044,105 +1969,8 @@ $("redeemVoucher")
 
 
 /* =====================================================
-   CLAIM EVIDENCE PHOTO
+   CLAIM CONFIRMATION
 ===================================================== */
-
-$("claimPhoto")
-  .addEventListener(
-    "change",
-    event => {
-
-      const file =
-        event.target.files?.[0];
-
-
-      if (
-        !file
-      ) {
-
-        claimPhotoFile =
-          null;
-
-
-        $("confirmClaimPhoto")
-          .disabled =
-          true;
-
-
-        return;
-      }
-
-
-      if (
-        file.size >
-        8 * 1024 * 1024
-      ) {
-
-        $("claimError")
-          .textContent =
-          "Claim photo is too large. Please use a photo under 8 MB.";
-
-
-        event.target.value =
-          "";
-
-
-        claimPhotoFile =
-          null;
-
-
-        $("confirmClaimPhoto")
-          .disabled =
-          true;
-
-
-        return;
-      }
-
-
-      claimPhotoFile =
-        file;
-
-
-      $("claimError")
-        .textContent =
-        "";
-
-
-      if (
-        claimPhotoPreviewUrl
-      ) {
-
-        URL.revokeObjectURL(
-          claimPhotoPreviewUrl
-        );
-
-      }
-
-
-      claimPhotoPreviewUrl =
-        URL.createObjectURL(
-          file
-        );
-
-
-      $("claimPhotoPreview").src =
-        claimPhotoPreviewUrl;
-
-
-      $("claimPhotoPreview")
-        .classList
-        .remove(
-          "hidden"
-        );
-
-
-      $("confirmClaimPhoto")
-        .disabled =
-        false;
-
-    }
-  );
 
 
 
@@ -2155,22 +1983,18 @@ $("confirmClaimPhoto")
     "click",
     async () => {
 
-      if (
-        !activeVoucher ||
-        !claimPhotoFile
-      ) {
+      if (!activeVoucher) {
 
         $("claimError")
           .textContent =
-          "Claim evidence photo is required.";
+          "Open your voucher before claiming.";
 
         return;
       }
 
 
-      $("confirmClaimPhoto")
-        .disabled =
-        true;
+      $("confirmClaimPhoto").disabled = true;
+      $("cancelClaim").disabled = true;
 
 
       $("confirmClaimPhoto")
@@ -2270,31 +2094,7 @@ $("confirmClaimPhoto")
         }
 
 
-        const claimFileName =
-          buildClaimFileName(
-            activeVoucher,
-            claimPhotoFile
-          );
-
-
-        $("claimError")
-          .textContent =
-          "Uploading claim evidence...";
-
-
-        await uploadToDrive({
-
-          type:
-            "claim",
-
-          file:
-            claimPhotoFile,
-
-          fileName:
-            claimFileName
-
-        });
-
+        $('claimError').textContent = 'Recording your claim…';
 
         const redeemedDate =
           new Date();
@@ -2306,124 +2106,9 @@ $("confirmClaimPhoto")
           );
 
 
-        const batch =
-          writeBatch(
-            db
-          );
-
-
-        batch.set(
-
-          voucherRef,
-
-          {
-
-            status:
-              "redeemed",
-
-            claimEvidenceFileName:
-              claimFileName,
-
-            claimEvidenceUploadStatus:
-              "sent",
-
-            claimEvidenceUploadedAt:
-              serverTimestamp(),
-
-            redeemedAt:
-              redeemedTimestamp
-
-          },
-
-          {
-            merge:
-              true
-          }
-
-        );
-
-
-        if (
-          currentVoucher.attemptId
-        ) {
-
-          batch.set(
-
-            doc(
-              db,
-              "attempts",
-              currentVoucher.attemptId
-            ),
-
-            {
-
-              voucherStatus:
-                "redeemed",
-
-              claimEvidenceFileName:
-                claimFileName,
-
-              claimEvidenceUploadStatus:
-                "sent",
-
-              redeemedAt:
-                redeemedTimestamp,
-
-              updatedAt:
-                serverTimestamp()
-
-            },
-
-            {
-              merge:
-                true
-            }
-
-          );
-
-        }
-
-
-        if (
-          currentVoucher.normalizedReceipt
-        ) {
-
-          batch.set(
-
-            doc(
-              db,
-              "receipts",
-              currentVoucher.normalizedReceipt
-            ),
-
-            {
-
-              status:
-                "redeemed",
-
-              voucherCode:
-                activeVoucher.voucherCode,
-
-              redeemedAt:
-                redeemedTimestamp,
-
-              updatedAt:
-                serverTimestamp()
-
-            },
-
-            {
-              merge:
-                true
-            }
-
-          );
-
-        }
-
-
-        await batch.commit();
-
+        await commitClaim({db, runTransaction, doc, voucherRef,
+          redeemedAt: redeemedTimestamp,
+          serverTimestamp, isExpired});
 
         activeVoucher = {
 
@@ -2434,9 +2119,6 @@ $("confirmClaimPhoto")
 
           status:
             "redeemed",
-
-          claimEvidenceFileName:
-            claimFileName,
 
           redeemedAt:
             redeemedTimestamp
@@ -2498,7 +2180,7 @@ $("confirmClaimPhoto")
 
         $("claimError")
           .textContent =
-          "Could not complete redemption. Please check the connection and try again.";
+          error.code ? "Could not complete redemption. Check your connection, then retry. Your voucher status will be checked again." : error.message;
 
 
         $("confirmClaimPhoto")
@@ -2509,6 +2191,8 @@ $("confirmClaimPhoto")
 
 
       finally {
+        $("cancelClaim").disabled = false;
+
 
         $("confirmClaimPhoto")
           .textContent =
@@ -2526,14 +2210,10 @@ $("cancelClaim")
     "click",
     () => {
 
-      displayVoucher(
-        activeVoucher
-      );
 
-
-      showScreen(
-        "screen-voucher"
-      );
+      saveVoucherLocally(activeVoucher);
+      displayVoucher(activeVoucher);
+      showScreen("screen-voucher");
 
     }
   );
@@ -3233,51 +2913,6 @@ function buildReceiptFileName(
 
 
 
-function buildClaimFileName(
-  voucher,
-  file
-) {
-
-  const extension =
-    getImageExtension(
-      file
-    );
-
-
-  return (
-
-    "CLAIM_" +
-
-    safeFilePart(
-      voucher.voucherCode
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      voucher.receiptNumber
-    ) +
-
-    "_" +
-
-    safeFilePart(
-      voucher.name
-    ) +
-
-    "_" +
-
-    Date.now() +
-
-    "." +
-
-    extension
-
-  );
-
-}
-
-
-
 function getImageExtension(
   file
 ) {
@@ -3494,7 +3129,7 @@ function updateSavedVoucherCard() {
     !saved ||
     !saved.voucherCode ||
     saved.status === "redeemed" ||
-    saved.status === "expired"
+    saved.status === "expired" || isExpired(saved.expiresAt)
   ) {
 
     card.classList.add(
@@ -3512,7 +3147,7 @@ function updateSavedVoucherCard() {
 
 
   info.textContent =
-    `${saved.voucherCode} • ₱${VOUCHER_AMOUNT} OFF`;
+    `${saved.voucherCode} • ₱${VOUCHER_AMOUNT} OFF • ${formatVoucherExpiry(saved.expiresAt)}. Tap to check current status.`;
 
 }
 
@@ -3523,7 +3158,9 @@ function updateSavedVoucherCard() {
 ===================================================== */
 
 function resetGame() {
-
+  receiptSelection++;
+  receiptPreparing = false;
+  $("continueToCamera").disabled = false;
   cleanupVideo();
 
 
@@ -3536,10 +3173,6 @@ function resetGame() {
 
 
   receiptFile =
-    null;
-
-
-  claimPhotoFile =
     null;
 
 
@@ -3556,10 +3189,6 @@ function resetGame() {
 
 
   $("receiptPhoto").value =
-    "";
-
-
-  $("claimPhoto").value =
     "";
 
 
@@ -3590,29 +3219,7 @@ function resetGame() {
   }
 
 
-  if (
-    claimPhotoPreviewUrl
-  ) {
-
-    URL.revokeObjectURL(
-      claimPhotoPreviewUrl
-    );
-
-
-    claimPhotoPreviewUrl =
-      null;
-
-  }
-
-
   $("receiptPreview")
-    .classList
-    .add(
-      "hidden"
-    );
-
-
-  $("claimPhotoPreview")
     .classList
     .add(
       "hidden"
@@ -3995,3 +3602,52 @@ pendingVideo('get').then(async pending => {
   showScreen('screen-result');
   await autoSaveVideo();
 }).catch(error => console.warn('Could not restore local video backup', error));
+
+// A local reminder is never proof that a voucher is still available.
+async function reconcileSavedVoucher() {
+  const saved = readSavedVoucher();
+  if (!saved?.voucherCode) return;
+  try {
+    const snapshot = await getDoc(doc(db, 'vouchers', saved.voucherCode));
+    if (!snapshot.exists()) {
+      localStorage.removeItem('kapirata_last_voucher');
+      updateSavedVoucherCard();
+      return;
+    }
+    const voucher = {...snapshot.data(), voucherCode: saved.voucherCode};
+    await refreshExpiryStatus(voucher);
+    if (readSavedVoucher()?.voucherCode === saved.voucherCode) saveVoucherLocally(voucher);
+  } catch (error) {
+    console.warn('Voucher status not checked', error);
+    if ($('savedVoucherInfo')) $('savedVoucherInfo').textContent = 'Saved voucher found. Connect to the internet and tap Continue to verify availability.';
+  }
+}
+reconcileSavedVoucher();
+window.addEventListener('pageshow', reconcileSavedVoucher);
+$('saveVoucherLater').addEventListener('click', () => {
+  saveVoucherLocally(activeVoucher);
+  showScreen('screen-home');
+});
+$('findVoucherByCode').addEventListener('click', async () => {
+  const code = $('voucherLookupCode').value.trim().toUpperCase();
+  const button = $('findVoucherByCode');
+  if (!code || code.includes('/')) {
+    $('voucherLookupError').textContent = 'Enter the voucher code shown on your voucher.';
+    return;
+  }
+  button.disabled = true;
+  $('voucherLookupError').textContent = 'Checking voucher…';
+  try {
+    const snapshot = await getDoc(doc(db, 'vouchers', code));
+    if (!snapshot.exists()) throw new Error('No voucher found. Check the code, or search using your name and receipt below.');
+    const voucher = {...snapshot.data(), voucherCode: code};
+    await refreshExpiryStatus(voucher);
+    activeVoucher = voucher;
+    saveVoucherLocally(voucher);
+    displayVoucher(voucher);
+    showScreen('screen-voucher');
+    $('voucherLookupError').textContent = '';
+  } catch (error) {
+    $('voucherLookupError').textContent = error.code ? 'Cannot check voucher. Check your internet connection and try again.' : error.message;
+  } finally { button.disabled = false; }
+});

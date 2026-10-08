@@ -163,7 +163,7 @@
       </p>
 
       <p>
-        📷 Cashier will take one claim evidence photo when the voucher is redeemed.
+        ✅ Confirm at the cashier to record your voucher as claimed. No claim photo is required.
       </p>
 
     </div>
@@ -738,7 +738,7 @@
     </div>
 
     <div class="voucher-warning">
-      ⚠️ Do not press redeem until you are already at the cashier.
+      ⚠️ Claim only when you are at the cashier. Opening the claim screen does not use your voucher. It is redeemed only after final confirmation at the cashier.
     </div>
 
 
@@ -752,6 +752,8 @@
 
 
 
+    <button id="saveVoucherLater" class="btn btn-dark">SAVE &amp; CLAIM LATER</button>
+    <p class="muted">Scan the QR again on this same browser → “CONTINUE CLAIMING MY VOUCHER”. Keep a screenshot of your voucher code. On another phone or after clearing browser data, use MY VOUCHER with the code or your name + receipt number.</p>
     <button
       id="newGame"
       class="text-btn"
@@ -764,7 +766,7 @@
 
 
   <!-- ==================================================
-       CLAIM PHOTO
+       CLAIM CONFIRMATION
   =================================================== -->
 
   <section
@@ -778,17 +780,17 @@
 
 
     <div class="hero-ball">
-      📸
+      🎟️
     </div>
 
 
     <h2>
-      TAKE CLAIM EVIDENCE
+      CONFIRM YOUR CLAIM
     </h2>
 
 
     <p class="muted">
-      Cashier: confirm that the purchase is eligible and no other discount or promo is applied, then take one clear claim photo.
+      Show this voucher to the cashier. Confirm only after the cashier applies your ₱10 discount. No photo proof is needed. Once confirmed, your voucher is recorded as claimed and cannot be used again.
     </p>
 
 
@@ -851,39 +853,9 @@
 
 
 
-    <label class="upload-box claim-upload">
-
-      <span>
-        📷 TAKE CLAIM PHOTO
-      </span>
-
-      <small>
-        Required before voucher can be redeemed.
-      </small>
-
-      <input
-        id="claimPhoto"
-        type="file"
-        accept="image/*"
-        capture="environment"
-      >
-
-    </label>
-
-
-
-    <img
-      id="claimPhotoPreview"
-      class="preview hidden"
-      alt="Claim evidence preview"
-    >
-
-
-
     <button
       id="confirmClaimPhoto"
       class="btn btn-success"
-      disabled
     >
       CONFIRM & REDEEM ₱10
     </button>
@@ -899,7 +871,7 @@
       id="cancelClaim"
       class="text-btn"
     >
-      ← Cancel redemption
+      ← CLAIM LATER — keep my voucher
     </button>
 
   </section>
@@ -950,7 +922,7 @@
 
 
     <p class="muted">
-      Claim evidence saved successfully.
+      Your claim has been recorded successfully.
     </p>
 
 
@@ -998,12 +970,14 @@
 
 
     <p class="muted">
-      May napanalunan ka na, bes?
-      Hanapin natin.
+      Continue your unclaimed voucher. Use your saved voucher code, or your name and receipt number. Redeemed or expired vouchers cannot be used again.
     </p>
 
 
 
+    <label>Voucher code <input id="voucherLookupCode" type="text" maxlength="60" autocomplete="off" placeholder="Code from your voucher screenshot"></label>
+    <button id="findVoucherByCode" class="btn btn-dark">CONTINUE WITH VOUCHER CODE</button>
+    <p class="muted">Or search with your original name and receipt:</p>
     <label>
 
       Name
@@ -1058,7 +1032,7 @@
 
 <script
   type="module"
-  src="app.js?v=20261008-cashier"
+  src="app.js?v=20261008-no-proof"
 ></script>
 
 </body>
