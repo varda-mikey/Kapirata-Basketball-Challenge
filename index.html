@@ -138,7 +138,7 @@
       </p>
 
       <p>
-        🧾 Keep your UTAK receipt.
+        🧾 Keep your VARDA ISIP receipt.
       </p>
 
       <p>
@@ -146,11 +146,11 @@
       </p>
 
       <p>
-        🏀 One receipt = one 10-second Trashketball attempt.
+        🏀 One receipt = one 5-second Trashketball attempt.
       </p>
 
       <p>
-        🎥 Your challenge video stays on your phone and is shown directly to the cashier.
+        🎥 Your 5-second challenge video is automatically saved for admin review and shown to the cashier.
       </p>
 
       <p>
@@ -207,7 +207,7 @@
 
 
     <p class="muted">
-      Name + UTAK receipt muna, bes.
+      Name + last 5 digits ng VARDA ISIP receipt muna, bes. Example: 00234.
     </p>
 
 
@@ -228,14 +228,16 @@
 
     <label>
 
-      UTAK Receipt Number
+      VARDA ISIP Receipt Number — Last 5 Digits
 
       <input
         id="receiptNumber"
         type="text"
-        maxlength="40"
+        inputmode="numeric"
+        pattern="[0-9]{5}"
+        maxlength="5"
         autocomplete="off"
-        placeholder="Receipt number"
+        placeholder="00234"
       >
 
     </label>
@@ -279,7 +281,7 @@
       >
 
       <span>
-        I agree that my receipt photo may be stored for promo validation. My challenge video will only be shown locally to the cashier and will not be uploaded.
+        I agree that my receipt photo and 5-second challenge video will be saved for promo validation and admin review.
       </span>
 
     </label>
@@ -322,7 +324,7 @@
         id="timer"
         class="timer"
       >
-        00:10
+        00:05
       </span>
 
     </div>
@@ -339,7 +341,7 @@
 
 
     <p class="muted">
-      HD recording • 10 seconds
+      Clear phone-review recording • 5 seconds
     </p>
 
 
@@ -387,7 +389,7 @@
         id="startRecording"
         class="btn btn-record hidden"
       >
-        ● START 10-SEC RECORDING
+        ● START 5-SEC RECORDING
       </button>
 
 
@@ -402,7 +404,7 @@
 
 
     <p class="tiny-note">
-      Video stays on this device only.
+      Your video saves automatically after recording. Wait for “Video saved” before continuing.
     </p>
 
   </section>
@@ -437,6 +439,12 @@
       Be honest — cashier will watch the replay.
     </p>
 
+
+    <div class="card" aria-live="polite">
+      <p id="videoSaveMessage">Your recording will save here automatically.</p>
+      <button id="retryVideoSave" class="btn btn-primary" hidden>↻ RETRY VIDEO SAVE</button>
+      <a id="downloadVideoBackup" class="text-btn" hidden>Download video backup</a>
+    </div>
 
     <div class="split">
 
@@ -549,7 +557,7 @@
       <div>
 
         <span>
-          UTAK Receipt
+          VARDA ISIP Receipt
         </span>
 
         <strong id="summaryReceipt">
@@ -990,14 +998,14 @@
 
     <label>
 
-      UTAK Receipt Number
+      VARDA ISIP Receipt Number — Last 5 Digits
 
       <input
         id="voucherLookupReceipt"
         type="text"
         maxlength="40"
         autocomplete="off"
-        placeholder="Receipt number"
+        placeholder="00234"
       >
 
     </label>
@@ -1026,7 +1034,7 @@
 
 <script
   type="module"
-  src="app.js"
+  src="app.js?v=20261008-video5"
 ></script>
 
 </body>

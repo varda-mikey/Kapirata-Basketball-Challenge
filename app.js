@@ -1,3 +1,4 @@
+import {VIDEO_SECONDS, VIDEO_BITRATE, VIDEO_FPS, VIDEO_LONG_EDGE, VIDEO_MAX_BYTES, videoPayload, pendingVideo} from "./video-store.js";
 import {
   firebaseConfig
 } from "./firebase-config.js";
@@ -377,11 +378,16 @@ $("continueToCamera")
 
         $("formError")
           .textContent =
-          "Name, UTAK receipt number, receipt photo, and consent are required.";
+          "Name, VARDA ISIP receipt number, receipt photo, and consent are required.";
 
         return;
       }
 
+
+      if (!/^\d{5}$/.test(receiptNumber)) {
+        $("formError").textContent = "Enter the last 5 digits of your VARDA ISIP receipt, e.g. 00234.";
+        return;
+      }
 
       $("continueToCamera")
         .disabled =
@@ -680,7 +686,7 @@ $("continueToCamera")
 
 /* =====================================================
    HD CAMERA
-   TARGET: 1280x720 / 30 FPS
+   TARGET: compact phone-review video / 24 FPS
 ===================================================== */
 
 $("enableCamera")
@@ -690,7 +696,7 @@ $("enableCamera")
 
       $("cameraMessage")
         .textContent =
-        "Starting HD camera...";
+        "Starting camera...";
 
 
       try {
@@ -709,18 +715,15 @@ $("enableCamera")
 
                 width: {
                   ideal:
-                    1280
+                    640
                 },
 
                 height: {
                   ideal:
-                    720
+                    480
                 },
 
-                frameRate: {
-                  ideal:
-                    30
-                }
+                frameRate: {ideal: VIDEO_FPS, max: VIDEO_FPS}
 
               },
 
@@ -831,8 +834,7 @@ $("startRecording")
 
       const options = {
 
-        videoBitsPerSecond:
-          4000000
+        videoBitsPerSecond: VIDEO_BITRATE
 
       };
 
@@ -851,7 +853,7 @@ $("startRecording")
 
         mediaRecorder =
           new MediaRecorder(
-            cameraStream,
+            prepareRecordingStream(),
             options
           );
 
@@ -861,9 +863,7 @@ $("startRecording")
       catch {
 
         mediaRecorder =
-          new MediaRecorder(
-            cameraStream
-          );
+          new MediaRecorder(recordingStream || cameraStream, {videoBitsPerSecond: VIDEO_BITRATE});
 
       }
 
@@ -888,7 +888,7 @@ $("startRecording")
 
       mediaRecorder
         .onstop =
-        () => {
+        async () => {
 
           clearInterval(
             timerHandle
@@ -952,26 +952,20 @@ $("startRecording")
             );
 
 
+          videoSettings.duration = Math.min(VIDEO_SECONDS, (Date.now() - recordedAt) / 1000);
           stopCameraStream();
 
 
-          setTimeout(
-            () => {
-
-              showScreen(
-                "screen-result"
-              );
-
-            },
-            350
-          );
+          showScreen("screen-result");
+          await autoSaveVideo();
 
         };
 
 
-      mediaRecorder.start(
-        250
-      );
+      recordedAt = Date.now();
+      videoSaved = false;
+      mediaRecorder.start(250);
+      recordingStopTimer = setTimeout(stopRecordingNow, VIDEO_SECONDS * 1000);
 
 
       $("startRecording")
@@ -1656,7 +1650,7 @@ $("findVoucher")
 
         $("voucherLookupError")
           .textContent =
-          "Enter your name and UTAK receipt number.";
+          "Enter your name and VARDA ISIP receipt number.";
 
         return;
       }
@@ -2986,13 +2980,12 @@ function startCountdown() {
   );
 
 
-  let seconds =
-    10;
+  let seconds = VIDEO_SECONDS;
 
 
   $("timer")
     .textContent =
-    "00:10";
+    "00:05";
 
 
   timerHandle =
@@ -3045,6 +3038,12 @@ function stopRecordingNow() {
 
 
 function stopCameraStream() {
+  clearTimeout(recordingStopTimer);
+  cancelAnimationFrame(recordingFrame);
+  if (recordingStream && recordingStream !== cameraStream) {
+    recordingStream.getTracks().forEach(track => track.stop());
+  }
+  recordingStream = null;
 
   if (
     cameraStream
@@ -3129,7 +3128,7 @@ function resetCameraUI() {
 
   $("timer")
     .textContent =
-    "00:10";
+    "00:05";
 
 }
 
@@ -3896,3 +3895,100 @@ window.addEventListener(
 
   }
 );
+
+
+/* Five-second video autosave. A failed upload never becomes a saved status. */
+let recordingStream = null;
+let recordingFrame = null;
+let recordingStopTimer = null;
+let recordedAt = 0;
+let videoSaved = false;
+let videoSavePromise = null;
+let videoSettings = {};
+
+function prepareRecordingStream() {
+  const source = $("camera");
+  const width = source.videoWidth || 640;
+  const height = source.videoHeight || 480;
+  const scale = Math.min(1, VIDEO_LONG_EDGE / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(2, Math.round(width * scale / 2) * 2);
+  canvas.height = Math.max(2, Math.round(height * scale / 2) * 2);
+  videoSettings = {width: canvas.width, height: canvas.height};
+  if (!canvas.captureStream) return (recordingStream = cameraStream);
+  const context = canvas.getContext("2d");
+  const draw = () => {
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    recordingFrame = requestAnimationFrame(draw);
+  };
+  draw();
+  return (recordingStream = canvas.captureStream(VIDEO_FPS));
+}
+
+function videoControls(saved) {
+  videoSaved = saved;
+  $("madeShot").disabled = !saved;
+  $("missedShot").disabled = !saved;
+}
+
+function autoSaveVideo() {
+  if (videoSavePromise) return videoSavePromise;
+  videoSavePromise = saveVideoNow().finally(() => { videoSavePromise = null; });
+  return videoSavePromise;
+}
+
+async function saveVideoNow() {
+  videoControls(false);
+  $("retryVideoSave").hidden = true;
+  $("videoSaveMessage").textContent = "Saving your video for admin review... Please keep this page open.";
+  const clip = localVideoBlob;
+  const attempt = activeAttempt && {...activeAttempt};
+  if (!clip || !attempt) {
+    $("videoSaveMessage").textContent = "No recording found. Please start a new attempt.";
+    return;
+  }
+  $("downloadVideoBackup").href = localVideoUrl;
+  $("downloadVideoBackup").download = 'KAPIRATA_' + attempt.id + (clip.type.includes('mp4') ? '.mp4' : '.webm');
+  $("downloadVideoBackup").hidden = false;
+  try {
+    try { await pendingVideo('put', {attempt, blob: clip, settings: videoSettings}); }
+    catch (backupError) { console.warn('Local backup unavailable', backupError); }
+    if (clip.size > VIDEO_MAX_BYTES) throw new Error('Recording is too large to save. Download the backup and show it to the cashier.');
+    const base64 = await fileToBase64(clip);
+    const payload = videoPayload(base64, clip, videoSettings);
+    await setDoc(doc(db, 'attempts', attempt.id), {
+      ...payload,
+      videoSavedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, {merge: true});
+    videoControls(true);
+    $("videoSaveMessage").textContent = 'Video saved for admin review ✓';
+    try { await pendingVideo('delete'); } catch (backupError) { console.warn(backupError); }
+  } catch (error) {
+    console.error(error);
+    $("videoSaveMessage").textContent = error.code === 'permission-denied'
+      ? 'Video not saved: Firebase access is blocked. Keep this page open, ask admin to check Rules, then tap Retry.'
+      : 'Video not saved. Check your connection, then tap Retry. Your recording is still on this phone.';
+    if (clip.size > VIDEO_MAX_BYTES) $("videoSaveMessage").textContent = error.message;
+    $("retryVideoSave").hidden = false;
+  }
+}
+
+$("retryVideoSave").addEventListener('click', autoSaveVideo);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopRecordingNow();
+});
+
+// Recover an interrupted upload on the same phone, without asking for another shot.
+pendingVideo('get').then(async pending => {
+  if (!pending || !pending.blob || activeAttempt) return;
+  activeAttempt = pending.attempt;
+  localVideoBlob = pending.blob;
+  videoSettings = pending.settings || {};
+  cleanupLocalVideoUrl();
+  localVideoUrl = URL.createObjectURL(localVideoBlob);
+  $("playback").src = localVideoUrl;
+  $("cashierPlayback").src = localVideoUrl;
+  showScreen('screen-result');
+  await autoSaveVideo();
+}).catch(error => console.warn('Could not restore local video backup', error));

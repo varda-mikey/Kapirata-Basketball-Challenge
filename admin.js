@@ -1,3 +1,4 @@
+import {decodeVideo} from "./video-store.js";
 import {
   firebaseConfig
 } from "./firebase-config.js";
@@ -11,7 +12,7 @@ import {
 import {
   getFirestore,
   collection,
-  getDocs,
+  onSnapshot,
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
@@ -53,132 +54,25 @@ let attempts =
    LOAD ATTEMPTS
 ===================================================== */
 
-async function loadAttempts() {
+let stopWatchingAttempts = null;
 
-  $("statusBox")
-    .textContent =
-    "Loading Kapirata records...";
-
-
-  $("refreshBtn")
-    .disabled =
-    true;
-
-
-  try {
-
-    const attemptsQuery =
-      query(
-        collection(
-          db,
-          "attempts"
-        ),
-        orderBy(
-          "createdAt",
-          "desc"
-        )
-      );
-
-
-    const snapshot =
-      await getDocs(
-        attemptsQuery
-      );
-
-
-    attempts =
-      snapshot.docs.map(
-        item => ({
-          id:
-            item.id,
-          ...item.data()
-        })
-      );
-
-
-    $("statusBox")
-      .textContent =
-      `Connected • ${attempts.length} attempt(s) loaded`;
-
-
+function loadAttempts() {
+  if (stopWatchingAttempts) stopWatchingAttempts();
+  $("statusBox").textContent = "Loading Kapirata records...";
+  $("refreshBtn").disabled = true;
+  stopWatchingAttempts = onSnapshot(collection(db, "attempts"), snapshot => {
+    attempts = snapshot.docs.map(item => ({id: item.id, ...item.data()}));
+    attempts.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
+    $("statusBox").textContent = `Connected • ${attempts.length} attempt(s) • Videos update automatically`;
+    $("refreshBtn").disabled = false;
     render();
-
-  }
-
-
-  catch (error) {
-
-    console.error(
-      error
-    );
-
-
-    try {
-
-      const snapshot =
-        await getDocs(
-          collection(
-            db,
-            "attempts"
-          )
-        );
-
-
-      attempts =
-        snapshot.docs.map(
-          item => ({
-            id:
-              item.id,
-            ...item.data()
-          })
-        );
-
-
-      attempts.sort(
-        (a, b) =>
-          getMillis(
-            b.createdAt
-          ) -
-          getMillis(
-            a.createdAt
-          )
-      );
-
-
-      $("statusBox")
-        .textContent =
-        `Connected • ${attempts.length} attempt(s) loaded`;
-
-
-      render();
-
-    }
-
-
-    catch (secondError) {
-
-      console.error(
-        secondError
-      );
-
-
-      $("statusBox")
-        .textContent =
-        "Could not load Firebase records.";
-
-    }
-
-  }
-
-
-  finally {
-
-    $("refreshBtn")
-      .disabled =
-      false;
-
-  }
-
+  }, error => {
+    console.error(error);
+    $("statusBox").textContent = error.code === 'permission-denied'
+      ? 'Firebase access blocked. Check the Firestore Rules, then tap Refresh.'
+      : 'Could not load records. Check the connection, then tap Refresh.';
+    $("refreshBtn").disabled = false;
+  });
 }
 
 
@@ -704,6 +598,13 @@ function evidenceButtons(
   }
 
 
+  if (attempt.videoUploadStatus === 'saved' && attempt.videoBase64) {
+    html += `<button class="btn dark" type="button" data-watch-video="${escapeAttribute(attempt.id)}" style="width:100%;margin:6px 0">🎥 WATCH VIDEO · ${Number(attempt.videoDurationSeconds || 5).toFixed(1)}s</button>`;
+    html += `<small>Video saved · ${Math.round(Number(attempt.videoBytes || 0) / 1024)} KB</small>`;
+  } else {
+    html += '<small style="display:block;margin-top:7px">No saved video (older or incomplete attempt)</small>';
+  }
+
   return html;
 
 }
@@ -1150,3 +1051,34 @@ $("refreshBtn")
 ===================================================== */
 
 loadAttempts();
+
+
+let adminVideoUrl = null;
+function closeVideoReview() {
+  const player = $("adminVideoPlayer");
+  player.pause();
+  player.removeAttribute('src');
+  player.load();
+  if (adminVideoUrl) URL.revokeObjectURL(adminVideoUrl);
+  adminVideoUrl = null;
+}
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-watch-video]');
+  if (!button) return;
+  const attempt = attempts.find(item => item.id === button.dataset.watchVideo);
+  if (!attempt || !attempt.videoBase64) return;
+  closeVideoReview();
+  try {
+    adminVideoUrl = URL.createObjectURL(decodeVideo(attempt.videoBase64, attempt.videoMimeType));
+    $("adminVideoPlayer").src = adminVideoUrl;
+    $("adminVideoTitle").textContent = (attempt.name || 'Student') + ' • Receipt ' + (attempt.receiptNumber || '—');
+    $("adminVideoDownload").href = adminVideoUrl;
+    $("adminVideoDownload").download = 'KAPIRATA_' + attempt.id + (String(attempt.videoMimeType).includes('mp4') ? '.mp4' : '.webm');
+    $("videoReview").showModal();
+  } catch (error) {
+    console.error(error);
+    alert('Could not open this video. Refresh the records and try again.');
+  }
+});
+$("closeVideoReview").addEventListener('click', () => $("videoReview").close());
+$("videoReview").addEventListener('close', closeVideoReview);

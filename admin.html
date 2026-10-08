@@ -284,9 +284,18 @@
 
 
 
+<dialog id="videoReview" style="width:min(92vw,600px);padding:18px;border:0;border-radius:16px;max-height:90vh">
+  <button id="closeVideoReview" class="btn dark" style="float:right" aria-label="Close video">✕ Close</button>
+  <h2>Challenge Video</h2>
+  <p id="adminVideoTitle"></p>
+  <video id="adminVideoPlayer" controls playsinline preload="metadata" style="width:100%;max-height:60vh;background:#111;border-radius:12px;object-fit:contain"></video>
+  <p>If this phone cannot play the recording, download it to open in your video player.</p>
+  <a id="adminVideoDownload" class="btn yellow">Download video</a>
+</dialog>
+
 <script
   type="module"
-  src="admin.js"
+  src="admin.js?v=20261008-video5"
 ></script>
 
 
