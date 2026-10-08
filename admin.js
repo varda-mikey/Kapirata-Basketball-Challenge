@@ -186,15 +186,7 @@ function renderStats() {
     ).length;
 
 
-  $("claimPhotoCount")
-    .textContent =
-    attempts.filter(
-      attempt =>
-        Boolean(
-          attempt
-            .claimEvidenceFileName
-        )
-    ).length;
+  $("expiredCount").textContent = attempts.filter(attempt => attempt.voucherStatus === 'expired').length;
 
 }
 
@@ -589,7 +581,7 @@ function evidenceButtons(
         ${
           attempt.voucherStatus ===
           "redeemed"
-            ? "Claim photo missing"
+            ? (attempt.claimProofRequired === false ? "✓ Claim recorded — no photo required" : "Claim photo missing")
             : "Not claimed yet"
         }
       </small>

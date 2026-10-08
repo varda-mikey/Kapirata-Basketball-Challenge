@@ -10,7 +10,7 @@ export async function commitClaim({db, runTransaction, doc, voucherRef, redeemed
       status: 'redeemed', claimProofRequired: false, redeemedAt, updatedAt: serverTimestamp()
     }, {merge:true});
     if (voucher.attemptId) transaction.set(doc(db, 'attempts', voucher.attemptId), {
-      voucherStatus:'redeemed', redeemedAt, updatedAt:serverTimestamp()
+      voucherStatus:'redeemed', claimProofRequired:false, redeemedAt, updatedAt:serverTimestamp()
     }, {merge:true});
     if (voucher.normalizedReceipt) transaction.set(doc(db, 'receipts', voucher.normalizedReceipt), {
       status:'redeemed', voucherCode:voucherRef.id, redeemedAt, updatedAt:serverTimestamp()
